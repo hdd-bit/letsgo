@@ -68,5 +68,5 @@ window.TAMHEOM_CONFIG = {
 - 다른 학생 이름으로 장난 제출을 하면 그 학생 이름이 '완료'로 잠겨요. 이럴 땐 선생님이 응답 초기화를 해 주세요.
 - 새 학기에 처음부터 다시 쓰려면 Supabase **SQL Editor**에서 실행:
   ```sql
-  delete from public.students; delete from public.settings;
+  delete from public.tm_students; delete from public.tm_settings;
   ```

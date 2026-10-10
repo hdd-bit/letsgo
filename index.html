@@ -229,14 +229,14 @@
         return res.json();
       }
       return {
-        roster: () => rpc("roster"),
-        submit: (id, type, answers, wishes) => rpc("submit_result", {p_id:id, p_type:type, p_answers:answers, p_wishes:wishes}),
-        load: pw => rpc("t_load", {p_pw:pw}),
-        saveStudent: (pw, data) => rpc("t_save_student", {p_pw:pw, p_data:data}),
-        addMany: (pw, rows) => rpc("t_add_many", {p_pw:pw, p_rows:rows}),
-        remove: (pw, id) => rpc("t_delete_student", {p_pw:pw, p_id:id}),
-        setSetting: (pw, key, value) => rpc("t_set_setting", {p_pw:pw, p_key:key, p_value:value}),
-        changePw: (pw, next) => rpc("t_change_pw", {p_pw:pw, p_new:next})
+        roster: () => rpc("tm_roster"),
+        submit: (id, type, answers, wishes) => rpc("tm_submit", {p_id:id, p_type:type, p_answers:answers, p_wishes:wishes}),
+        load: pw => rpc("tm_load", {p_pw:pw}),
+        saveStudent: (pw, data) => rpc("tm_save_student", {p_pw:pw, p_data:data}),
+        addMany: (pw, rows) => rpc("tm_add_many", {p_pw:pw, p_rows:rows}),
+        remove: (pw, id) => rpc("tm_delete_student", {p_pw:pw, p_id:id}),
+        setSetting: (pw, key, value) => rpc("tm_set_setting", {p_pw:pw, p_key:key, p_value:value}),
+        changePw: (pw, next) => rpc("tm_change_pw", {p_pw:pw, p_new:next})
       };
     }
 
@@ -422,7 +422,7 @@
     }
 
     /* ================= 선생님 화면 ================= */
-    const T = {pw:null, data:null, tab:"roster", filter:"all", sel:null, groups:null, saveState:"", edit:null};
+    const T = {pw:null, data:null, tab:"tm_roster", filter:"all", sel:null, groups:null, saveState:"", edit:null};
     try { T.pw = sessionStorage.getItem("tamheom-pw"); } catch(e) {}
     const students = () => (T.data && T.data.students) || [];
     const sById = () => new Map(students().map(s => [s.id, s]));
@@ -474,7 +474,7 @@
       $("shell").classList.add("wide");
       root.innerHTML = `<div class="tbar">
           <nav class="tabs" aria-label="선생님 메뉴">
-            <button type="button" data-tab="roster" aria-pressed="${T.tab==="roster"}">① 학생 명단</button>
+            <button type="button" data-tab="tm_roster" aria-pressed="${T.tab==="tm_roster"}">① 학생 명단</button>
             <button type="button" data-tab="groups" aria-pressed="${T.tab==="groups"}">② 모둠 짜기</button>
           </nav>
           <div class="row"><span class="hint" id="saveState">${esc(T.saveState)}</span><button class="btn ghost sm" type="button" id="lockBtn">잠그기</button></div>
@@ -486,7 +486,7 @@
         renderTeacher();
       });
       $("lockBtn").onclick = () => lockTeacher("");
-      if (T.tab === "roster") renderRoster(); else renderGroupsTab();
+      if (T.tab === "tm_roster") renderRoster(); else renderGroupsTab();
     }
 
     /* ---------- ① 학생 명단 ---------- */
@@ -962,7 +962,7 @@
     $("tabStudent").onclick = () => show(false);
     $("tabTeacher").onclick = () => show(true);
     setInterval(async () => {
-      if ($("teacherView").hidden || !T.data || T.tab !== "roster" || $("editDlg").open) return;
+      if ($("teacherView").hidden || !T.data || T.tab !== "tm_roster" || $("editDlg").open) return;
       const active = document.activeElement;
       if (active && /INPUT|TEXTAREA|SELECT/.test(active.tagName)) return;
       if (await reload()) renderRoster();

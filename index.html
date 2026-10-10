@@ -1,7 +1,9 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" translate="no" class="notranslate">
 <head>
   <meta charset="UTF-8">
+  <meta name="google" content="notranslate">
+  <meta http-equiv="Content-Language" content="ko">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>탐험대 모둠 편성</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -162,7 +164,7 @@
     }
   </style>
 </head>
-<body>
+<body class="notranslate" translate="no">
   <div class="app-shell">
     <div id="shell" class="app-wrap">
       <header class="bar">
@@ -212,6 +214,7 @@
     const shuffle = a => { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]} return b; };
     const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
     const byName = (a,b) => a.name.localeCompare(b.name, "ko");
+    const normName = s => String(s || "").replace(/\s+/g, "");
     const fmtTime = iso => { try { const d=new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; } catch(e) { return ""; } };
 
     /* ================= 저장소 (Supabase 또는 체험 모드) ================= */
@@ -230,7 +233,7 @@
       }
       return {
         roster: () => rpc("tm_roster"),
-        submit: (id, type, answers, wishes) => rpc("tm_submit", {p_id:id, p_type:type, p_answers:answers, p_wishes:wishes}),
+        submitSelf: (name, gender, type, answers, wishNames) => rpc("tm_submit_self", {p_name:name, p_gender:gender, p_type:type, p_answers:answers, p_wish_names:wishNames}),
         load: pw => rpc("tm_load", {p_pw:pw}),
         saveStudent: (pw, data) => rpc("tm_save_student", {p_pw:pw, p_data:data}),
         addMany: (pw, rows) => rpc("tm_add_many", {p_pw:pw, p_rows:rows}),
@@ -252,15 +255,17 @@
       const copy = x => JSON.parse(JSON.stringify(x));
       const sorted = () => [...mem.students].sort((a,b) => a.gender.localeCompare(b.gender) || byName(a,b));
       const dup = (name, gender, id) => mem.students.some(s => s.name === name && s.gender === gender && s.id !== id);
-      const blank = (name, gender, type) => ({id:uid(), name, gender, type:type || null, answers:null, wishes:[], submitted_at:null});
+      const blank = (name, gender, type) => ({id:uid(), name, gender, type:type || null, answers:null, wishes:[], wish_names:[], submitted_at:null});
       return {
         async roster(){ sync(); return sorted().map(s => ({id:s.id, name:s.name, gender:s.gender, submitted:!!s.submitted_at})); },
-        async submit(id, type, answers, wishes){
-          sync(); const me = mem.students.find(s => s.id === id);
-          if (!me) return {ok:false, error:"notfound"};
-          if (me.submitted_at) return {ok:false, error:"already"};
-          const w = [...new Set(wishes)].filter(x => x !== id && mem.students.some(s => s.id === x && s.gender === me.gender)).slice(0, MAX_WISH);
-          Object.assign(me, {type, answers, wishes:w, submitted_at:new Date().toISOString()}); save(); return {ok:true};
+        async submitSelf(name, gender, type, answers, wishNames){
+          sync(); name = normName(name);
+          if (!name || name.length > 20 || !GENDERS.includes(gender)) return {ok:false, error:"name"};
+          let me = mem.students.find(s => s.name === name && s.gender === gender);
+          if (me && me.submitted_at) return {ok:false, error:"already"};
+          if (!me) { me = blank(name, gender); mem.students.push(me); }
+          const wn = [...new Set((wishNames || []).map(normName).filter(x => x && x !== name && x.length <= 20))].slice(0, MAX_WISH);
+          Object.assign(me, {type, answers, wish_names:wn, submitted_at:new Date().toISOString()}); save(); return {ok:true};
         },
         async load(pw){ sync(); return bad(pw) || {ok:true, students:copy(sorted()), settings:copy(mem.settings)}; },
         async saveStudent(pw, d){
@@ -269,8 +274,8 @@
           if (dup(name, d.gender, d.id)) return {ok:false, error:"dup"};
           if (!d.id) { const s = blank(name, d.gender, d.type); mem.students.push(s); save(); return {ok:true, id:s.id}; }
           const s = mem.students.find(x => x.id === d.id); if (!s) return {ok:false, error:"notfound"};
-          if (d.reset) Object.assign(s, {name, gender:d.gender, type:null, answers:null, wishes:[], submitted_at:null});
-          else Object.assign(s, {name, gender:d.gender, type:d.type || null, wishes:[...new Set(d.wishes || [])].filter(x => x !== s.id)});
+          if (d.reset) Object.assign(s, {name, gender:d.gender, type:null, answers:null, wishes:[], wish_names:[], submitted_at:null});
+          else Object.assign(s, {name, gender:d.gender, type:d.type || null, wishes:[...new Set(d.wishes || [])].filter(x => x !== s.id), wish_names:[]});
           save(); return {ok:true, id:s.id};
         },
         async addMany(pw, rows){
@@ -289,16 +294,13 @@
     }
 
     /* ================= 학생 화면 ================= */
-    const S = {step:"pick", gender:"여", roster:null, loadErr:"", me:null, q:0, answers:[], order:[], wishes:[], type:null, msg:""};
+    const S = {step:"start", name:"", gender:"", roster:[], q:0, answers:[], order:[], wishNames:["","",""], type:null, msg:""};
 
     async function loadRoster(){
-      S.loadErr = "";
-      try { S.roster = await api.roster(); }
-      catch(e) { S.loadErr = "명단을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침을 눌러 주세요."; S.roster = S.roster || []; }
-      if (S.step === "pick") renderStudent();
+      try { S.roster = await api.roster(); } catch(e) { /* 친구 이름 추천용이라 실패해도 진행 */ }
     }
     function resetStudent(){
-      Object.assign(S, {step:"pick", me:null, q:0, answers:[], order:QS.map(() => shuffle(KEYS)), wishes:[], type:null, msg:""});
+      Object.assign(S, {step:"start", name:"", gender:"", q:0, answers:[], order:QS.map(() => shuffle(KEYS)), wishNames:["","",""], type:null, msg:""});
       renderStudent(); loadRoster();
     }
     function computeType(answers){
@@ -306,44 +308,34 @@
       const max = Math.max(...Object.values(count)), tops = KEYS.filter(k => count[k] === max);
       return tops.includes(answers[answers.length-1]) ? answers[answers.length-1] : tops[0];
     }
-    function nameButtons(list, pressed, disabledFn){
-      return list.map(s => {
-        const off = disabledFn && disabledFn(s);
-        return `<button class="name" type="button" data-id="${esc(s.id)}" aria-pressed="${pressed.includes(s.id)}" ${off?"disabled":""}>${esc(s.name)}${off?"<small>완료</small>":""}</button>`;
-      }).join("");
+    function nameButtons(list, pressed){
+      return list.map(s => `<button class="name" type="button" data-id="${esc(s.id)}" aria-pressed="${pressed.includes(s.id)}">${esc(s.name)}</button>`).join("");
     }
 
     function renderStudent(){
       const root = $("studentView");
-      if (S.step === "pick") {
-        const list = (S.roster || []).filter(s => s.gender === S.gender);
-        const body = S.roster === null ? `<p class="empty">명단을 불러오는 중이에요…</p>`
-          : !list.length ? `<p class="empty">아직 ${S.gender}학생 명단이 없어요. 선생님께 말해 주세요.</p>`
-          : `<div class="names" id="nameGrid">${nameButtons(list, [], s => s.submitted)}</div>`;
+      if (S.step === "start") {
         root.innerHTML = `<section class="ticket">
           <p class="eyebrow">현장체험학습 입장권</p>
           <h1 class="title">나는 어떤 탐험대원일까?</h1>
-          <p class="lead">내 이름을 찾아 누르고 놀이공원 질문 10개에 답해 봐요. 정답은 없어요.</p>
+          <p class="lead">이름과 성별을 적고 놀이공원 질문 10개에 답해 봐요. 정답은 없어요.</p>
           <div class="perf"></div>
-          <div class="seg2" role="group" aria-label="성별">${GENDERS.map(g => `<button type="button" data-g="${g}" aria-pressed="${S.gender===g}">${g}학생</button>`).join("")}</div>
-          ${body}
-          <p class="err">${esc(S.loadErr)}</p>
-          <p class="hint">내 이름이 없거나 '완료'로 되어 있으면 선생님께 말해 주세요. <button class="link" type="button" id="reloadRoster">새로고침</button></p>
+          <div class="field"><label for="nm">내 이름 (성까지)</label><input id="nm" class="input" maxlength="12" autocomplete="off" placeholder="예: 김하늘" value="${esc(S.name)}"></div>
+          <div class="field"><span class="lab">성별</span>
+            <div class="seg2" role="group" aria-label="성별">${GENDERS.map(g => `<button type="button" data-g="${g}" aria-pressed="${S.gender===g}">${g}</button>`).join("")}</div></div>
+          <p class="err" id="startErr">${esc(S.msg)}</p>
+          <button class="btn primary block" type="button" id="startBtn">시작하기</button>
         </section>`;
-        root.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { S.gender = b.dataset.g; renderStudent(); });
-        root.querySelectorAll("#nameGrid .name").forEach(b => b.onclick = () => { S.me = S.roster.find(s => s.id === b.dataset.id); S.step = "confirm"; renderStudent(); });
-        $("reloadRoster").onclick = () => { S.roster = null; renderStudent(); loadRoster(); };
-        return;
-      }
-      if (S.step === "confirm") {
-        root.innerHTML = `<section class="ticket">
-          <p class="eyebrow">이름 확인</p>
-          <h1 class="title">${esc(S.me.name)}, 맞나요?</h1>
-          <p class="lead">다른 친구 이름으로 하면 그 친구가 테스트를 할 수 없어요.</p>
-          <div class="navrow"><button class="btn ghost" type="button" id="no">아니에요</button><button class="btn primary" type="button" id="yes">네, 시작할게요</button></div>
-        </section>`;
-        $("no").onclick = () => { S.step = "pick"; S.me = null; renderStudent(); };
-        $("yes").onclick = () => { S.step = "q"; S.q = 0; S.answers = []; S.wishes = []; renderStudent(); };
+        root.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { S.name = $("nm").value; S.gender = b.dataset.g; S.msg = ""; renderStudent(); });
+        const start = () => {
+          S.name = normName($("nm").value);
+          if (S.name.length < 2) { S.msg = "이름을 성까지 적어 주세요."; return renderStudent(); }
+          if (!S.gender) { S.msg = "성별을 골라 주세요."; return renderStudent(); }
+          if (S.roster.some(s => s.name === S.name && s.gender === S.gender && s.submitted)) { S.step = "already"; return renderStudent(); }
+          S.msg = ""; S.step = "q"; S.q = 0; S.answers = []; renderStudent();
+        };
+        $("startBtn").onclick = start;
+        $("nm").onkeydown = e => { if (e.key === "Enter") start(); };
         return;
       }
       if (S.step === "q") {
@@ -356,33 +348,34 @@
           <div class="navrow"><button class="btn ghost sm" id="prev" type="button">이전</button><button class="btn primary sm" id="next" type="button" ${cur?"":"disabled"}>다음</button></div>
         </section>`;
         root.querySelectorAll(".opt").forEach(b => b.onclick = () => { S.answers[i] = b.dataset.t; renderStudent(); });
-        $("prev").onclick = () => { if (i === 0) { S.step = "confirm"; } else S.q--; renderStudent(); };
-        $("next").onclick = () => { if (i === QS.length-1) S.step = "friends"; else S.q++; renderStudent(); };
+        $("prev").onclick = () => { if (i === 0) S.step = "start"; else S.q--; renderStudent(); };
+        $("next").onclick = () => { if (i === QS.length-1) { S.step = "friends"; loadRoster(); } else S.q++; renderStudent(); };
         return;
       }
       if (S.step === "friends") {
-        const list = (S.roster || []).filter(s => s.gender === S.me.gender && s.id !== S.me.id);
+        const known = (S.roster || []).filter(s => s.gender === S.gender && s.name !== S.name).map(s => s.name).sort((a,b) => a.localeCompare(b, "ko"));
         root.innerHTML = `<section class="ticket">
-          <div class="punches">${QS.map(() => `<span class="on"></span>`).join("")}<span class="${S.wishes.length?"on":""}"></span></div>
+          <div class="punches">${QS.map(() => `<span class="on"></span>`).join("")}<span class="${S.wishNames.some(Boolean)?"on":""}"></span></div>
           <p class="qno">마지막 단계</p>
-          <h2 class="question">같이 다니고 싶은 친구를 골라 주세요</h2>
-          <p class="lead">1명부터 ${MAX_WISH}명까지 고를 수 있어요. <b>선생님만 볼 수 있고 친구들은 몰라요.</b> 고른 친구 중 적어도 1명과는 같은 모둠이 되도록 최대한 맞춰 볼게요.</p>
-          <p class="pickcount">${S.wishes.length} / ${MAX_WISH}명 골랐어요</p>
-          <div class="names" id="wishGrid">${nameButtons(list, S.wishes)}</div>
+          <h2 class="question">같이 다니고 싶은 친구를 적어 주세요</h2>
+          <p class="lead">같은 성별 친구를 1명부터 ${MAX_WISH}명까지 적을 수 있어요. <b>선생님만 볼 수 있고 친구들은 몰라요.</b> 적은 친구 중 적어도 1명과는 같은 모둠이 되도록 최대한 맞춰 볼게요.</p>
+          ${[0,1,2].map(k => `<div class="field"><label for="w${k}">친구 ${k+1}${k ? " (적지 않아도 돼요)" : ""}</label><input id="w${k}" class="input" maxlength="12" autocomplete="off" list="friendList" placeholder="성까지 정확하게" value="${esc(S.wishNames[k])}"></div>`).join("")}
+          <datalist id="friendList">${known.map(n => `<option value="${esc(n)}"></option>`).join("")}</datalist>
           <p class="err" id="fErr">${esc(S.msg)}</p>
-          <div class="navrow"><button class="btn ghost sm" id="prev" type="button">이전</button><button class="btn primary" id="submit" type="button" ${S.wishes.length?"":"disabled"}>제출하고 결과 보기</button></div>
+          <div class="navrow"><button class="btn ghost sm" id="prev" type="button">이전</button><button class="btn primary" id="submit" type="button">제출하고 결과 보기</button></div>
           <p class="hint" style="margin-top:14px;text-align:center"><button class="link" type="button" id="anyone">누구와 같은 모둠이어도 괜찮아요</button></p>
         </section>`;
-        root.querySelectorAll("#wishGrid .name").forEach(b => b.onclick = () => {
-          const id = b.dataset.id; S.msg = "";
-          if (S.wishes.includes(id)) S.wishes = S.wishes.filter(x => x !== id);
-          else if (S.wishes.length >= MAX_WISH) S.msg = `${MAX_WISH}명까지만 고를 수 있어요. 한 명을 빼고 골라 주세요.`;
-          else S.wishes.push(id);
-          renderStudent();
-        });
-        $("prev").onclick = () => { S.msg = ""; S.step = "q"; S.q = QS.length-1; renderStudent(); };
-        $("submit").onclick = () => submitStudent(S.wishes);
-        $("anyone").onclick = () => { if (confirm("친구를 고르지 않고 제출할까요?")) submitStudent([]); };
+        const read = () => { S.wishNames = [0,1,2].map(k => $("w"+k).value); };
+        $("prev").onclick = () => { read(); S.msg = ""; S.step = "q"; S.q = QS.length-1; renderStudent(); };
+        $("submit").onclick = () => {
+          read();
+          const names = [...new Set(S.wishNames.map(normName).filter(Boolean))];
+          if (!names.length) { S.msg = "친구 이름을 1명 이상 적어 주세요. 아무나 괜찮으면 아래를 눌러 주세요."; return renderStudent(); }
+          if (names.includes(S.name)) { S.msg = "내 이름 말고 친구 이름을 적어 주세요."; return renderStudent(); }
+          if (names.some(n => n.length < 2)) { S.msg = "친구 이름을 성까지 적어 주세요."; return renderStudent(); }
+          submitStudent(names);
+        };
+        $("anyone").onclick = () => { read(); if (confirm("친구를 적지 않고 제출할까요?")) submitStudent([]); };
         return;
       }
       if (S.step === "saving") {
@@ -390,14 +383,14 @@
         return;
       }
       if (S.step === "already") {
-        root.innerHTML = `<section class="ticket"><p class="eyebrow">이미 제출했어요</p><h1 class="title">${esc(S.me.name)}의 결과는 이미 있어요</h1>
-          <p class="lead">다시 하고 싶으면 선생님께 말해 주세요.</p><button class="btn primary block" id="home" type="button">처음 화면으로</button></section>`;
+        root.innerHTML = `<section class="ticket"><p class="eyebrow">이미 제출했어요</p><h1 class="title">${esc(S.name)}의 결과는 이미 있어요</h1>
+          <p class="lead">다시 하고 싶으면 선생님께 말해 주세요. 이름을 잘못 적었다면 처음으로 돌아가 다시 적어 주세요.</p><button class="btn primary block" id="home" type="button">처음 화면으로</button></section>`;
         $("home").onclick = resetStudent; return;
       }
       const t = S.type, d = TYPES[t];
       root.innerHTML = `<section class="ticket result" data-type="${t}">
         <div class="badge"><strong>${t}</strong></div>
-        <p class="status" style="margin-top:12px">${esc(S.me.name)} 탐험대원은</p>
+        <p class="status" style="margin-top:12px">${esc(S.name)} 탐험대원은</p>
         <h1 class="rtype">${d.name}</h1>
         <p style="margin-top:6px"><strong>${d.line}</strong></p>
         <p style="margin-top:12px;line-height:1.6">${d.body}</p>
@@ -409,25 +402,38 @@
       $("home").onclick = resetStudent;
     }
 
-    async function submitStudent(wishes){
+    async function submitStudent(wishNames){
       S.type = computeType(S.answers); S.msg = ""; S.step = "saving"; renderStudent();
       try {
-        const r = await api.submit(S.me.id, S.type, S.answers, wishes);
-        if (r && r.ok) { S.step = "result"; }
+        const r = await api.submitSelf(S.name, S.gender, S.type, S.answers, wishNames);
+        if (r && r.ok) { S.step = "result"; loadRoster(); }
         else if (r && r.error === "already") { S.step = "already"; }
-        else if (r && r.error === "notfound") { S.step = "friends"; S.msg = "명단에서 이름을 찾을 수 없어요. 선생님께 말해 주세요."; }
+        else if (r && r.error === "name") { S.step = "start"; S.msg = "이름을 다시 확인해 주세요."; }
         else { S.step = "friends"; S.msg = "저장하지 못했어요. 다시 눌러 주세요."; }
       } catch(e) { S.step = "friends"; S.msg = "인터넷 연결이 불안정해요. 잠시 뒤 다시 눌러 주세요."; }
       renderStudent();
     }
 
     /* ================= 선생님 화면 ================= */
-    const T = {pw:null, data:null, tab:"tm_roster", filter:"all", sel:null, groups:null, saveState:"", edit:null};
+    const T = {pw:null, data:null, tab:"roster", filter:"all", sel:null, groups:null, saveState:"", edit:null};
     try { T.pw = sessionStorage.getItem("tamheom-pw"); } catch(e) {}
     const students = () => (T.data && T.data.students) || [];
     const sById = () => new Map(students().map(s => [s.id, s]));
     const setting = (k, d) => (T.data && T.data.settings && T.data.settings[k] != null) ? T.data.settings[k] : d;
 
+    // 학생이 적은 친구 이름(wish_names)을 명단의 학생과 연결. 못 찾은 이름은 unmatched로 표시
+    function prep(r){
+      const list = r.students || [];
+      list.forEach(s => {
+        const names = s.wish_names || [], ids = new Set(s.wishes || []), unmatched = [];
+        names.forEach(n => {
+          const m = list.find(x => x.gender === s.gender && x.name === n && x.id !== s.id);
+          if (m) ids.add(m.id); else unmatched.push(n);
+        });
+        s.wishes = [...ids]; s.unmatched = unmatched;
+      });
+      return r;
+    }
     function errText(code){
       return ({bad:"비밀번호가 맞지 않아요.", locked:"비밀번호를 여러 번 틀려서 10분 동안 잠겼어요. 잠시 뒤 다시 해 주세요.", dup:"같은 성별에 같은 이름이 이미 있어요. (예: 김민준B 처럼 구분해 주세요)", name:"이름을 적어 주세요.", invalid:"입력한 값을 확인해 주세요.", notfound:"학생을 찾을 수 없어요. 새로고침해 주세요."})[code] || "저장하지 못했어요. 다시 시도해 주세요.";
     }
@@ -440,7 +446,7 @@
       let r;
       try { r = await api.load(T.pw); } catch(e) { setSaveState("연결 실패 · 인터넷을 확인해 주세요"); return false; }
       if (!r.ok) { lockTeacher(errText(r.error)); return false; }
-      T.data = r; return true;
+      T.data = prep(r); return true;
     }
     async function call(promise){
       try { const r = await promise; if (!r.ok && (r.error === "bad" || r.error === "locked")) { lockTeacher(errText(r.error)); return null; } return r; }
@@ -463,7 +469,7 @@
           const pw = $("pwInput").value.trim(); if (!pw) return $("pwInput").focus();
           $("unlockBtn").disabled = true; $("pwErr").textContent = "";
           let r; try { r = await api.load(pw); } catch(e) { r = {ok:false, error:"network"}; }
-          if (r.ok) { T.pw = pw; T.data = r; T.groups = cleanGroups(setting("groups", null)); try { sessionStorage.setItem("tamheom-pw", pw); } catch(e) {} renderTeacher(); }
+          if (r.ok) { T.pw = pw; T.data = prep(r); T.groups = cleanGroups(setting("groups", null)); try { sessionStorage.setItem("tamheom-pw", pw); } catch(e) {} renderTeacher(); }
           else { $("unlockBtn").disabled = false; $("pwErr").textContent = r.error === "network" ? "연결하지 못했어요. 인터넷과 config.js 설정을 확인해 주세요." : errText(r.error); $("pwInput").select(); }
         };
         $("unlockBtn").onclick = go;
@@ -474,7 +480,7 @@
       $("shell").classList.add("wide");
       root.innerHTML = `<div class="tbar">
           <nav class="tabs" aria-label="선생님 메뉴">
-            <button type="button" data-tab="tm_roster" aria-pressed="${T.tab==="tm_roster"}">① 학생 명단</button>
+            <button type="button" data-tab="roster" aria-pressed="${T.tab==="roster"}">① 학생 명단</button>
             <button type="button" data-tab="groups" aria-pressed="${T.tab==="groups"}">② 모둠 짜기</button>
           </nav>
           <div class="row"><span class="hint" id="saveState">${esc(T.saveState)}</span><button class="btn ghost sm" type="button" id="lockBtn">잠그기</button></div>
@@ -486,7 +492,7 @@
         renderTeacher();
       });
       $("lockBtn").onclick = () => lockTeacher("");
-      if (T.tab === "tm_roster") renderRoster(); else renderGroupsTab();
+      if (T.tab === "roster") renderRoster(); else renderGroupsTab();
     }
 
     /* ---------- ① 학생 명단 ---------- */
@@ -505,6 +511,7 @@
               <div><b>${all.filter(s=>s.gender==="여").length}</b>여학생</div><div><b>${all.filter(s=>s.gender==="남").length}</b>남학생</div>
             </div>
             <div class="tally">${KEYS.map(t => `<div><b>${tc[t]}</b>${TYPES[t].name}</div>`).join("")}</div>
+            ${all.some(s => s.unmatched && s.unmatched.length) ? `<p class="note">적은 친구 이름이 아직 명단에 없는 학생이 있어요: ${esc(all.filter(s => s.unmatched && s.unmatched.length).map(s => s.name).join(", "))}. 그 친구가 아직 테스트를 안 했거나 이름을 잘못 적은 경우예요. 모두 끝난 뒤에도 남아 있으면 그 학생 줄을 눌러 고쳐 주세요.</p>` : ""}
             ${all.length && done < all.length ? `<p class="hint">아직 안 한 학생: ${esc(all.filter(s=>!s.submitted_at).map(s=>s.name).join(", "))}</p>` : ""}
           </section>
           <section class="panel">
@@ -536,7 +543,7 @@
               <tbody>${rows.map(s => `<tr data-id="${esc(s.id)}">
                 <td><button class="rowname" type="button" data-id="${esc(s.id)}">${esc(s.name)}</button></td>
                 <td>${s.gender}</td><td>${typeName(s.type)}</td>
-                <td class="wrap">${esc((s.wishes||[]).map(w => map.get(w)?.name).filter(Boolean).join(", ")) || "—"}</td>
+                <td class="wrap">${esc((s.wishes||[]).map(w => map.get(w)?.name).filter(Boolean).join(", ")) || (s.unmatched && s.unmatched.length ? "" : "—")}${s.unmatched && s.unmatched.length ? `<div class="gwarn">⚠ 아직 명단에 없음: ${esc(s.unmatched.join(", "))}</div>` : ""}</td>
                 <td>${s.submitted_at ? `<span class="pill done" title="${fmtTime(s.submitted_at)}">제출</span>` : s.type ? `<span class="pill manual">직접 입력</span>` : `<span class="pill">미제출</span>`}</td>
               </tr>`).join("")}</tbody></table></div>`
               : `<div class="empty">${all.length ? "이 성별 학생이 없어요." : "아직 명단이 없어요. 왼쪽에서 학생을 추가해 주세요."}</div>`}
@@ -602,7 +609,7 @@
     // 수정 창
     function openEdit(id){
       const s = students().find(x => x.id === id); if (!s) return;
-      T.edit = {id:s.id, name:s.name, gender:s.gender, type:s.type || "", wishes:[...(s.wishes||[])], submitted_at:s.submitted_at, origGender:s.gender};
+      T.edit = {id:s.id, name:s.name, gender:s.gender, type:s.type || "", wishes:[...(s.wishes||[])], unmatched:[...(s.unmatched||[])], submitted_at:s.submitted_at, origGender:s.gender};
       renderEdit(); $("editDlg").showModal();
     }
     function renderEdit(msg){
@@ -615,6 +622,7 @@
         <div class="field"><label for="eType">유형</label><select id="eType" class="input"><option value="">미정</option>${KEYS.map(t => `<option value="${t}" ${E.type===t?"selected":""}>${t} ${TYPES[t].name}</option>`).join("")}</select></div>
         <div class="field"><span class="lab">희망 친구 (최대 ${MAX_WISH}명 · ${E.wishes.length}명 선택)</span>
           ${pool.length ? `<div class="names small" id="eWish">${nameButtons(pool, E.wishes)}</div>` : `<p class="hint">같은 성별 친구가 아직 없어요.</p>`}</div>
+        ${E.unmatched && E.unmatched.length ? `<p class="gwarn">⚠ 학생이 적었지만 명단에 없는 이름: ${esc(E.unmatched.join(", "))} — 아직 테스트를 안 한 친구일 수도 있어요. 오타라면 위에서 맞는 친구를 눌러 주세요. 저장하면 이 표시는 사라져요.</p>` : ""}
         <p class="hint">${E.submitted_at ? `학생이 ${fmtTime(E.submitted_at)}에 제출했어요.` : "학생이 아직 제출하지 않았어요."}</p>
         <p class="err" id="eErr">${esc(msg || "")}</p>
         <div class="row spaced">
@@ -956,13 +964,13 @@
         else renderTeacher();
       } else {
         $("shell").classList.remove("wide");
-        if (S.step === "pick") loadRoster();
+        loadRoster();
       }
     }
     $("tabStudent").onclick = () => show(false);
     $("tabTeacher").onclick = () => show(true);
     setInterval(async () => {
-      if ($("teacherView").hidden || !T.data || T.tab !== "tm_roster" || $("editDlg").open) return;
+      if ($("teacherView").hidden || !T.data || T.tab !== "roster" || $("editDlg").open) return;
       const active = document.activeElement;
       if (active && /INPUT|TEXTAREA|SELECT/.test(active.tagName)) return;
       if (await reload()) renderRoster();

@@ -14,10 +14,14 @@ create table if not exists public.tm_students (
   type         text check (type in ('A', 'B', 'C', 'D')),
   answers      jsonb,
   wishes       uuid[] not null default '{}',
+  wish_names   text[] not null default '{}',
   submitted_at timestamptz,
   created_at   timestamptz not null default now(),
   unique (gender, name)
 );
+
+-- 예전 버전에서 업데이트할 때를 위해
+alter table public.tm_students add column if not exists wish_names text[] not null default '{}';
 
 -- 조 인원, 친구 조건, 편성 결과 저장
 create table if not exists public.tm_settings (
@@ -79,25 +83,29 @@ language sql stable security definer set search_path = public as $$
   order by s.gender, s.name;
 $$;
 
--- 학생용: 결과 제출 (한 번만 가능, 다시 하려면 선생님이 '응답 초기화')
-create or replace function public.tm_submit(p_id uuid, p_type text, p_answers jsonb, p_wishes uuid[])
+-- 학생용: 이름·성별을 직접 적고 결과 제출 (같은 이름이 이미 제출했으면 거절)
+drop function if exists public.tm_submit(uuid, text, jsonb, uuid[]);
+create or replace function public.tm_submit_self(p_name text, p_gender text, p_type text, p_answers jsonb, p_wish_names text[])
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare me public.tm_students; w uuid[]; ok_count int;
+declare v_name text; me public.tm_students; wn text[];
 begin
-  select * into me from public.tm_students where id = p_id for update;
-  if not found then return jsonb_build_object('ok', false, 'error', 'notfound'); end if;
-  if me.submitted_at is not null then return jsonb_build_object('ok', false, 'error', 'already'); end if;
+  v_name := regexp_replace(coalesce(p_name, ''), '\s', '', 'g');
+  if char_length(v_name) < 1 or char_length(v_name) > 20 or p_gender is null or p_gender not in ('남', '여') then
+    return jsonb_build_object('ok', false, 'error', 'name');
+  end if;
   if p_type is null or p_type not in ('A', 'B', 'C', 'D') then
     return jsonb_build_object('ok', false, 'error', 'type');
   end if;
-  select coalesce(array_agg(distinct x), '{}') into w
-  from unnest(coalesce(p_wishes, '{}')) x where x <> p_id;
-  if cardinality(w) > 3 then return jsonb_build_object('ok', false, 'error', 'wishes'); end if;
-  select count(*) into ok_count from public.tm_students where id = any(w) and gender = me.gender;
-  if ok_count <> cardinality(w) then return jsonb_build_object('ok', false, 'error', 'wishes'); end if;
+  select coalesce(array_agg(distinct n), '{}') into wn from (
+    select regexp_replace(x, '\s', '', 'g') n from unnest(coalesce(p_wish_names, '{}')) x
+  ) t where n <> '' and n <> v_name and char_length(n) <= 20;
+  if cardinality(wn) > 3 then return jsonb_build_object('ok', false, 'error', 'wishes'); end if;
+  insert into public.tm_students (name, gender) values (v_name, p_gender) on conflict (gender, name) do nothing;
+  select * into me from public.tm_students where name = v_name and gender = p_gender for update;
+  if me.submitted_at is not null then return jsonb_build_object('ok', false, 'error', 'already'); end if;
   update public.tm_students
-     set type = p_type, answers = p_answers, wishes = w, submitted_at = now()
-   where id = p_id;
+     set type = p_type, answers = p_answers, wish_names = wn, submitted_at = now()
+   where id = me.id;
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -135,12 +143,13 @@ begin
       insert into public.tm_students (name, gender, type) values (v_name, v_gender, v_type) returning id into v_id;
     elsif coalesce((p_data->>'reset')::boolean, false) then
       update public.tm_students
-         set name = v_name, gender = v_gender, type = null, answers = null, wishes = '{}', submitted_at = null
+         set name = v_name, gender = v_gender, type = null, answers = null, wishes = '{}', wish_names = '{}', submitted_at = null
        where id = v_id;
     else
       update public.tm_students
          set name = v_name, gender = v_gender, type = v_type,
-             wishes = (select coalesce(array_agg(x), '{}') from unnest(v_wishes) x where x <> v_id)
+             wishes = (select coalesce(array_agg(x), '{}') from unnest(v_wishes) x where x <> v_id),
+             wish_names = '{}'
        where id = v_id;
     end if;
   exception
@@ -203,11 +212,11 @@ end $$;
 
 -- 함수 실행 권한: 내부 함수는 막고, 나머지만 열어 둡니다.
 revoke execute on function public.tm_check_pw(text) from public, anon, authenticated;
-revoke execute on function public.tm_roster(), public.tm_submit(uuid, text, jsonb, uuid[]),
+revoke execute on function public.tm_roster(), public.tm_submit_self(text, text, text, jsonb, text[]),
   public.tm_load(text), public.tm_save_student(text, jsonb), public.tm_add_many(text, jsonb),
   public.tm_delete_student(text, uuid), public.tm_set_setting(text, text, jsonb),
   public.tm_change_pw(text, text) from public;
-grant execute on function public.tm_roster(), public.tm_submit(uuid, text, jsonb, uuid[]),
+grant execute on function public.tm_roster(), public.tm_submit_self(text, text, text, jsonb, text[]),
   public.tm_load(text), public.tm_save_student(text, jsonb), public.tm_add_many(text, jsonb),
   public.tm_delete_student(text, uuid), public.tm_set_setting(text, text, jsonb),
   public.tm_change_pw(text, text) to anon, authenticated;

@@ -1,0 +1,977 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>탐험대 모둠 편성</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#eef2f8;--surface:#fff;--ink:#14213d;--muted:#5a6a86;--line:#d3dcea;--brand:#2446d6;--brandSoft:#e5ebff;--brandInk:#fff;--a:#d93a21;--b:#2a62e8;--c:#0c8f7d;--d:#b87c00;--warn:#b45309;--warnBg:#fff8df;--warnLine:#dfc274;--okBg:#e4faf5;--okLine:#78c5b9;--danger:#c62828}
+    *{box-sizing:border-box}
+    html,body{background:var(--bg)}
+    body{margin:0;color:var(--ink);font-family:"Noto Sans KR",sans-serif;word-break:keep-all}
+    h1,h2,h3,h4{font-family:"Jua","Noto Sans KR",sans-serif;font-weight:400;margin:0;line-height:1.25}
+    p{margin:0}
+    button,input,select,textarea{font:inherit;color:inherit}
+    button{cursor:pointer}
+    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+    [hidden]{display:none!important}
+
+    .app-shell{width:100%;min-height:100vh;padding:20px 16px 48px}
+    .app-wrap{max-width:640px;margin:auto}.app-wrap.wide{max-width:1100px}
+    .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:10px;font-family:"Jua";font-size:21px}
+    .dots{flex:none;width:72px;height:14px;background:radial-gradient(circle at 7px 7px,var(--a) 0 7px,transparent 8px),radial-gradient(circle at 25px 7px,var(--b) 0 7px,transparent 8px),radial-gradient(circle at 43px 7px,var(--c) 0 7px,transparent 8px),radial-gradient(circle at 61px 7px,var(--d) 0 7px,transparent 8px)}
+    .tabs{display:flex;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+    .tabs button{border:0;background:transparent;border-radius:999px;padding:7px 13px;font-size:14px;color:var(--muted);white-space:nowrap}
+    .tabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+    .modebar{margin-bottom:14px;padding:10px 12px;border:1px solid var(--warnLine);border-radius:10px;background:var(--warnBg);font-size:13px}
+
+    .ticket,.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px 22px}
+    .perf{border-top:2px dashed var(--line);margin:20px -22px}
+    .eyebrow{font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--muted)}
+    .title{font-size:clamp(28px,7vw,39px);margin-top:6px}
+    .lead,.hint,.status{color:var(--muted)}
+    .lead{margin-top:10px;line-height:1.6}
+    .hint{font-size:13px;line-height:1.5}
+    .field{display:grid;gap:6px;margin-top:14px}
+    .field label,.lab{font-size:14px;font-weight:700}
+    .input{width:100%;min-height:46px;padding:10px 13px;background:var(--bg);border:2px solid var(--line);border-radius:12px;color:var(--ink)}
+    .input:focus{border-color:var(--brand);outline:0}
+    textarea.input{min-height:84px;resize:vertical;line-height:1.5}
+
+    .seg2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .seg2 button{min-height:48px;border:2px solid var(--line);border-radius:12px;background:var(--bg);font-weight:700}
+    .seg2 button[aria-pressed="true"]{border-color:var(--brand);background:var(--brandSoft);color:var(--brand)}
+    .mini{display:flex;gap:4px}
+    .mini button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:4px 11px;font-size:13px}
+    .mini button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+
+    .btn{min-height:46px;padding:10px 17px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:2px solid var(--ink);border-radius:12px;background:var(--ink);color:var(--bg);font-weight:700}
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brandInk)}
+    .btn.ghost{background:transparent;border-color:var(--line);color:var(--ink)}
+    .btn.danger{background:transparent;border-color:#f0b8b8;color:var(--danger)}
+    .btn.sm{min-height:36px;padding:5px 11px;font-size:14px;border-radius:10px}
+    .btn:disabled{opacity:.42;cursor:not-allowed}
+    .block{width:100%;margin-top:18px}
+    .link{border:0;background:none;padding:0;color:var(--brand);text-decoration:underline;font-size:inherit}
+    .err{color:var(--a);min-height:20px;margin-top:8px;font-size:14px}
+    .ok{color:var(--c)}
+    .panel .err:empty{display:none}
+
+    .names{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:16px}
+    .names.small{grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;margin-top:4px}
+    .name{min-height:52px;padding:8px 6px;border:2px solid var(--line);border-radius:12px;background:var(--bg);font-weight:700;display:grid;place-items:center;line-height:1.2}
+    .names.small .name{min-height:40px;font-size:14px;font-weight:500}
+    .name:hover:not(:disabled){border-color:var(--brand)}
+    .name[aria-pressed="true"]{border-color:var(--brand);background:var(--brand);color:#fff}
+    .name:disabled{opacity:.5;cursor:not-allowed}
+    .name small{display:block;font-size:11px;font-weight:500;color:var(--muted)}
+    .pickcount{margin-top:12px;font-weight:700;color:var(--brand)}
+
+    .punches{display:flex;gap:6px;margin-bottom:18px}.punches span{height:8px;flex:1;border-radius:5px;background:var(--line)}.punches span.on{background:var(--brand)}
+    .qno{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+    .question{font-size:clamp(22px,5.5vw,29px);margin-top:6px}
+    .opts{display:grid;gap:10px;margin-top:20px}
+    .opt{display:grid;grid-template-columns:32px 1fr;gap:12px;text-align:left;align-items:center;padding:13px;border:2px solid var(--line);border-radius:14px;background:var(--bg);min-height:56px}
+    .opt:hover,.opt[aria-pressed="true"]{border-color:var(--brand)}
+    .opt[aria-pressed="true"]{background:var(--brandSoft)}
+    .opt b{display:grid;place-items:center;width:32px;height:32px;border:2px solid var(--line);border-radius:50%;background:var(--surface);font-size:14px}
+    .opt[aria-pressed="true"] b{background:var(--brand);border-color:var(--brand);color:#fff}
+    .navrow,.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .navrow{justify-content:space-between;margin-top:20px}
+    .spaced{justify-content:space-between}
+
+    .result{--type:var(--a)}.result[data-type="B"]{--type:var(--b)}.result[data-type="C"]{--type:var(--c)}.result[data-type="D"]{--type:var(--d)}
+    .badge{display:grid;place-items:center;width:72px;height:72px;border:2px solid var(--type);border-radius:22px;color:var(--type);background:#fff}
+    .badge strong{font-family:"Jua";font-size:36px}
+    .rtype{font-size:clamp(32px,9vw,45px);color:var(--type);margin-top:3px}
+    .rrole{margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#f6f8ff}
+    .rrole p{margin-top:4px}
+
+    /* 선생님 */
+    .tbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+    .desk{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:20px;align-items:start}
+    .stack{display:grid;gap:20px}
+    .panel{padding:18px;display:grid;gap:12px}
+    .panel h2{font-size:21px}
+    .panel .field{margin-top:0}
+    .tally{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+    .tally div{padding:8px 4px;text-align:center;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:12px}
+    .tally b{display:block;font-family:"Jua";font-size:25px;font-weight:400}
+    .tablewrap{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+    td{white-space:nowrap}td.wrap{white-space:normal;min-width:120px}
+    th{position:sticky;top:0;background:var(--surface);font-size:12px;color:var(--muted);z-index:1}
+    tbody tr{cursor:pointer}tbody tr:hover{background:#f6f8ff}
+    .rowname{border:0;background:none;padding:0;font-weight:700;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;background:var(--bg);color:var(--muted)}
+    .pill.done{background:var(--okBg);color:#0b6b5e}.pill.manual{background:var(--brandSoft);color:var(--brand)}
+    .empty{text-align:center;padding:25px 10px;color:var(--muted)}
+    .note{padding:10px 12px;border:1px solid var(--warnLine);border-radius:10px;background:var(--warnBg);font-size:14px;line-height:1.55}
+    .note.ok{border-color:var(--okLine);background:var(--okBg)}
+    .note ul{margin:4px 0 0;padding-left:18px}
+
+    .gsec{display:grid;gap:10px}
+    .gsec+.gsec{margin-top:8px;padding-top:14px;border-top:2px dashed var(--line)}
+    .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+    .group{padding:12px;border:2px solid var(--line);border-radius:14px;background:var(--bg);display:flex;flex-direction:column;gap:6px}
+    .group.warn{border-color:var(--warnLine);background:var(--warnBg)}
+    .group.pool{border-style:dashed;background:var(--surface)}
+    .ghead{display:flex;justify-content:space-between;align-items:center;gap:6px;min-height:30px}
+    .ghead h4{color:var(--muted);font-size:16px}
+    .here{border:2px solid var(--brand);background:var(--brand);color:#fff;border-radius:8px;padding:2px 9px;font-size:13px;font-weight:700}
+    .xs{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:2px 8px;font-size:12px;color:var(--muted)}
+    .chip{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;width:100%;padding:7px 9px;border:2px solid var(--line);border-radius:10px;background:var(--surface);text-align:left}
+    .chip:hover{border-color:#a9b8d6}
+    .chip.sel{border-color:var(--brand);background:var(--brandSoft);box-shadow:0 0 0 2px var(--brand) inset}
+    .chip small{font-weight:700;font-size:12px}
+    .chip small.tA{color:var(--a)}.chip small.tB{color:var(--b)}.chip small.tC{color:var(--c)}.chip small.tD{color:var(--d)}.chip small.t0{color:var(--muted);font-weight:500}
+    .chip em{grid-column:1/-1;font-style:normal;font-size:11px;font-weight:700;color:var(--warn)}
+    .chip.unmet{border-color:var(--warnLine)}
+    .gwarn{font-size:12px;font-weight:700;color:var(--warn);line-height:1.45}
+
+    dialog{border:0;border-radius:18px;padding:0;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 40px);color:var(--ink);background:var(--surface)}
+    dialog::backdrop{background:rgba(20,33,61,.45)}
+    .dlg{padding:22px;display:grid;gap:12px}
+    .dlg .field{margin-top:0}
+
+    .big{position:fixed;inset:0;z-index:50;background:var(--surface);overflow:auto;padding:24px}
+    .bigbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+    .bigbar h1{font-size:clamp(28px,4vw,40px)}
+    .big h2{font-size:28px;margin:18px 0 10px}
+    .biggroups{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+    .bigcard{border:2px solid var(--line);border-radius:16px;padding:14px 16px}
+    .bigcard h3{font-size:24px;color:var(--brand);margin-bottom:8px}
+    .bigcard li{font-size:22px;line-height:1.6;list-style:none;display:flex;justify-content:space-between;gap:10px}
+    .bigcard li small{font-size:14px;color:var(--muted);align-self:center}
+    .bigcard ul{margin:0;padding:0}
+
+    @media(max-width:860px){.desk{grid-template-columns:1fr}}
+    @media(max-width:520px){.bar{align-items:flex-start}.tabs button{padding:6px 10px}.ticket{padding:22px 18px}.perf{margin:20px -18px}}
+    @media print{
+      body *{visibility:hidden}
+      #big,#big *{visibility:visible}
+      #big{position:absolute;inset:0;padding:0;overflow:visible}
+      .bigbar .row{display:none}
+      .bigcard{break-inside:avoid}
+      .bigcard li{font-size:16px}.bigcard h3{font-size:18px}.big h2{font-size:20px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div id="shell" class="app-wrap">
+      <header class="bar">
+        <div class="brand"><span class="dots" aria-hidden="true"></span><span>탐험대 모둠 편성</span></div>
+        <nav class="tabs" aria-label="화면 선택">
+          <button type="button" id="tabStudent" aria-pressed="true">학생</button>
+          <button type="button" id="tabTeacher" aria-pressed="false">선생님</button>
+        </nav>
+      </header>
+      <p id="modebar" class="modebar" hidden>체험 모드예요. 아직 Supabase가 연결되지 않아서 <b>이 기기에만</b> 저장돼요. 학생들이 각자 기기로 하려면 README의 연결 방법을 따라 주세요.</p>
+      <main id="studentView" aria-live="polite"></main>
+      <main id="teacherView" hidden></main>
+    </div>
+  </div>
+  <dialog id="editDlg" aria-labelledby="editTitle"></dialog>
+  <div id="big" class="big" hidden></div>
+
+  <script src="config.js"></script>
+  <script>
+  (() => {
+    "use strict";
+
+    /* ================= 테스트 내용 ================= */
+    const TYPES = {
+      A:{name:"스릴 대장",line:"무섭고 빠를수록 좋아! 도전 정신 만렙",body:"놀이공원에서 제일 먼저 달려가는 용감한 탐험가예요.",role:"첫 발을 내딛는 도전 담당이에요."},
+      B:{name:"계획 박사",line:"지도와 시간표가 내 무기인 알뜰 탐험가",body:"동선과 대기 시간을 살피며 최고의 코스를 만드는 사람이에요.",role:"길 찾기와 시간 관리 담당이에요."},
+      C:{name:"느긋 감성러",line:"분위기와 간식과 사진이 최고인 여유로운 산책가",body:"풍경과 기분을 소중히 여기며 즐거운 순간을 발견해요.",role:"속도 조절과 쉬어 가기 담당이에요."},
+      D:{name:"분위기 메이커",line:"같이 있으면 더 신나는 모둠의 접착제",body:"누구와도 금방 어울리고 함께하는 시간을 더 즐겁게 만들어요.",role:"모둠의 말과 마음을 이어 주는 분위기 담당이에요."}
+    };
+    const QS = [
+      ["놀이공원 입구에 도착했다! 제일 먼저 하는 일은?",["제일 무서워 보이는 놀이기구로 달려간다","안내 지도를 펴서 오늘 코스를 짠다","예쁜 풍경과 캐릭터 가게를 둘러본다","친구들과 뭐부터 할지 의논한다"]],
+      ["인기 놀이기구 대기 시간이 90분이래!",["무서운 거면 기다릴 수 있다","사람 적은 시간에 다시 오자","간식 먹고 구경하면 금방이다","친구와 수다 떨면 순식간이다"]],
+      ["줄 서는 동안 나는?",["두근두근 소리에 귀 기울인다","다음 계획을 생각한다","주변을 구경하거나 멍을 때린다","앞뒤 친구들과 이야기를 나눈다"]],
+      ["롤러코스터 꼭대기에서 나는?",["두 손 들고 소리 지른다","안전바를 한 번 더 확인한다","눈 감고 바람을 느낀다","옆 사람 손을 잡고 같이 소리 지른다"]],
+      ["점심시간에는?",["빨리 먹고 하나라도 더 타자","미리 알아 둔 식당에서 먹는다","예쁜 카페에서 천천히 먹는다","다 같이 나눠 먹는다"]],
+      ["친구가 무서운 건 못 탄다고 하면?",["나만 타고 오겠다고 한다","모두 즐길 수 있는 기구를 찾는다","무리하지 말고 다른 걸 타자고 한다","용기를 낼 수 있게 응원한다"]],
+      ["갑자기 비가 내리면?",["비 맞는 놀이기구가 더 신난다","실내 기구 위치부터 확인한다","우비 입고 사진을 찍는다","처마 밑에 모여 수다를 떤다"]],
+      ["모둠 친구들과 의견이 갈리면?",["내가 가고 싶은 곳을 주장한다","공평하게 정할 방법을 찾는다","친구들을 따라간다","서로 듣고 중간 지점을 찾는다"]],
+      ["꼭 사고 싶은 기념품은?",["스릴 인증 놀이기구 사진","방문 기록 노트나 스탬프","귀여운 머리띠나 인형","친구들과 맞춘 우정템"]],
+      ["집에 오는 버스 안에서 나는?",["오늘 탄 것 중 최고를 꼽는다","오늘 몇 개 탔는지 센다","창밖을 보며 하루를 떠올린다","웃긴 일을 계속 이야기한다"]]
+    ];
+    const KEYS = ["A","B","C","D"], GENDERS = ["여","남"], MAX_WISH = 3, MAX_GROUP = 5;
+
+    /* ================= 도구 ================= */
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const shuffle = a => { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]} return b; };
+    const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+    const byName = (a,b) => a.name.localeCompare(b.name, "ko");
+    const fmtTime = iso => { try { const d=new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; } catch(e) { return ""; } };
+
+    /* ================= 저장소 (Supabase 또는 체험 모드) ================= */
+    const CFG = window.TAMHEOM_CONFIG || {};
+    const REMOTE = !!(CFG.supabaseUrl && CFG.supabaseKey);
+    const api = REMOTE ? remoteApi(CFG) : localApi();
+
+    function remoteApi(cfg){
+      const base = cfg.supabaseUrl.trim().replace(/\/+$/, ""), key = cfg.supabaseKey.trim();
+      async function rpc(fn, args){
+        const headers = {"Content-Type":"application/json", apikey:key};
+        if (key.startsWith("eyJ")) headers.Authorization = "Bearer " + key;
+        const res = await fetch(`${base}/rest/v1/rpc/${fn}`, {method:"POST", headers, body:JSON.stringify(args || {})});
+        if (!res.ok) throw new Error(res.status + " " + await res.text());
+        return res.json();
+      }
+      return {
+        roster: () => rpc("roster"),
+        submit: (id, type, answers, wishes) => rpc("submit_result", {p_id:id, p_type:type, p_answers:answers, p_wishes:wishes}),
+        load: pw => rpc("t_load", {p_pw:pw}),
+        saveStudent: (pw, data) => rpc("t_save_student", {p_pw:pw, p_data:data}),
+        addMany: (pw, rows) => rpc("t_add_many", {p_pw:pw, p_rows:rows}),
+        remove: (pw, id) => rpc("t_delete_student", {p_pw:pw, p_id:id}),
+        setSetting: (pw, key, value) => rpc("t_set_setting", {p_pw:pw, p_key:key, p_value:value}),
+        changePw: (pw, next) => rpc("t_change_pw", {p_pw:pw, p_new:next})
+      };
+    }
+
+    function localApi(){
+      const KEY = "tamheom-local-v1";
+      const fresh = () => ({students:[], settings:{}, pw:"1018"});
+      const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch(e) { return null; } };
+      let mem = read() || fresh();
+      const sync = () => { mem = read() || mem; };
+      const save = () => { try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch(e) {} };
+      const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "id-" + Date.now().toString(36) + Math.random().toString(36).slice(2);
+      const bad = pw => pw === mem.pw ? null : {ok:false, error:"bad"};
+      const copy = x => JSON.parse(JSON.stringify(x));
+      const sorted = () => [...mem.students].sort((a,b) => a.gender.localeCompare(b.gender) || byName(a,b));
+      const dup = (name, gender, id) => mem.students.some(s => s.name === name && s.gender === gender && s.id !== id);
+      const blank = (name, gender, type) => ({id:uid(), name, gender, type:type || null, answers:null, wishes:[], submitted_at:null});
+      return {
+        async roster(){ sync(); return sorted().map(s => ({id:s.id, name:s.name, gender:s.gender, submitted:!!s.submitted_at})); },
+        async submit(id, type, answers, wishes){
+          sync(); const me = mem.students.find(s => s.id === id);
+          if (!me) return {ok:false, error:"notfound"};
+          if (me.submitted_at) return {ok:false, error:"already"};
+          const w = [...new Set(wishes)].filter(x => x !== id && mem.students.some(s => s.id === x && s.gender === me.gender)).slice(0, MAX_WISH);
+          Object.assign(me, {type, answers, wishes:w, submitted_at:new Date().toISOString()}); save(); return {ok:true};
+        },
+        async load(pw){ sync(); return bad(pw) || {ok:true, students:copy(sorted()), settings:copy(mem.settings)}; },
+        async saveStudent(pw, d){
+          sync(); const e = bad(pw); if (e) return e;
+          const name = (d.name || "").trim(); if (!name) return {ok:false, error:"name"};
+          if (dup(name, d.gender, d.id)) return {ok:false, error:"dup"};
+          if (!d.id) { const s = blank(name, d.gender, d.type); mem.students.push(s); save(); return {ok:true, id:s.id}; }
+          const s = mem.students.find(x => x.id === d.id); if (!s) return {ok:false, error:"notfound"};
+          if (d.reset) Object.assign(s, {name, gender:d.gender, type:null, answers:null, wishes:[], submitted_at:null});
+          else Object.assign(s, {name, gender:d.gender, type:d.type || null, wishes:[...new Set(d.wishes || [])].filter(x => x !== s.id)});
+          save(); return {ok:true, id:s.id};
+        },
+        async addMany(pw, rows){
+          sync(); const e = bad(pw); if (e) return e; let n = 0;
+          rows.forEach(r => { const name = (r.name || "").trim(); if (name && GENDERS.includes(r.gender) && !dup(name, r.gender)) { mem.students.push(blank(name, r.gender)); n++; } });
+          save(); return {ok:true, added:n};
+        },
+        async remove(pw, id){
+          sync(); const e = bad(pw); if (e) return e;
+          mem.students = mem.students.filter(s => s.id !== id);
+          mem.students.forEach(s => s.wishes = s.wishes.filter(x => x !== id)); save(); return {ok:true};
+        },
+        async setSetting(pw, key, value){ sync(); const e = bad(pw); if (e) return e; mem.settings[key] = value; save(); return {ok:true}; },
+        async changePw(pw, next){ sync(); const e = bad(pw); if (e) return e; if (!next || next.length < 4) return {ok:false, error:"short"}; mem.pw = next; save(); return {ok:true}; }
+      };
+    }
+
+    /* ================= 학생 화면 ================= */
+    const S = {step:"pick", gender:"여", roster:null, loadErr:"", me:null, q:0, answers:[], order:[], wishes:[], type:null, msg:""};
+
+    async function loadRoster(){
+      S.loadErr = "";
+      try { S.roster = await api.roster(); }
+      catch(e) { S.loadErr = "명단을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침을 눌러 주세요."; S.roster = S.roster || []; }
+      if (S.step === "pick") renderStudent();
+    }
+    function resetStudent(){
+      Object.assign(S, {step:"pick", me:null, q:0, answers:[], order:QS.map(() => shuffle(KEYS)), wishes:[], type:null, msg:""});
+      renderStudent(); loadRoster();
+    }
+    function computeType(answers){
+      const count = {A:0,B:0,C:0,D:0}; answers.forEach(a => count[a]++);
+      const max = Math.max(...Object.values(count)), tops = KEYS.filter(k => count[k] === max);
+      return tops.includes(answers[answers.length-1]) ? answers[answers.length-1] : tops[0];
+    }
+    function nameButtons(list, pressed, disabledFn){
+      return list.map(s => {
+        const off = disabledFn && disabledFn(s);
+        return `<button class="name" type="button" data-id="${esc(s.id)}" aria-pressed="${pressed.includes(s.id)}" ${off?"disabled":""}>${esc(s.name)}${off?"<small>완료</small>":""}</button>`;
+      }).join("");
+    }
+
+    function renderStudent(){
+      const root = $("studentView");
+      if (S.step === "pick") {
+        const list = (S.roster || []).filter(s => s.gender === S.gender);
+        const body = S.roster === null ? `<p class="empty">명단을 불러오는 중이에요…</p>`
+          : !list.length ? `<p class="empty">아직 ${S.gender}학생 명단이 없어요. 선생님께 말해 주세요.</p>`
+          : `<div class="names" id="nameGrid">${nameButtons(list, [], s => s.submitted)}</div>`;
+        root.innerHTML = `<section class="ticket">
+          <p class="eyebrow">현장체험학습 입장권</p>
+          <h1 class="title">나는 어떤 탐험대원일까?</h1>
+          <p class="lead">내 이름을 찾아 누르고 놀이공원 질문 10개에 답해 봐요. 정답은 없어요.</p>
+          <div class="perf"></div>
+          <div class="seg2" role="group" aria-label="성별">${GENDERS.map(g => `<button type="button" data-g="${g}" aria-pressed="${S.gender===g}">${g}학생</button>`).join("")}</div>
+          ${body}
+          <p class="err">${esc(S.loadErr)}</p>
+          <p class="hint">내 이름이 없거나 '완료'로 되어 있으면 선생님께 말해 주세요. <button class="link" type="button" id="reloadRoster">새로고침</button></p>
+        </section>`;
+        root.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { S.gender = b.dataset.g; renderStudent(); });
+        root.querySelectorAll("#nameGrid .name").forEach(b => b.onclick = () => { S.me = S.roster.find(s => s.id === b.dataset.id); S.step = "confirm"; renderStudent(); });
+        $("reloadRoster").onclick = () => { S.roster = null; renderStudent(); loadRoster(); };
+        return;
+      }
+      if (S.step === "confirm") {
+        root.innerHTML = `<section class="ticket">
+          <p class="eyebrow">이름 확인</p>
+          <h1 class="title">${esc(S.me.name)}, 맞나요?</h1>
+          <p class="lead">다른 친구 이름으로 하면 그 친구가 테스트를 할 수 없어요.</p>
+          <div class="navrow"><button class="btn ghost" type="button" id="no">아니에요</button><button class="btn primary" type="button" id="yes">네, 시작할게요</button></div>
+        </section>`;
+        $("no").onclick = () => { S.step = "pick"; S.me = null; renderStudent(); };
+        $("yes").onclick = () => { S.step = "q"; S.q = 0; S.answers = []; S.wishes = []; renderStudent(); };
+        return;
+      }
+      if (S.step === "q") {
+        const i = S.q, [q, options] = QS[i], cur = S.answers[i];
+        root.innerHTML = `<section class="ticket">
+          <div class="punches">${QS.map((_,x) => `<span class="${x<i||(x===i&&cur)?"on":""}"></span>`).join("")}<span></span></div>
+          <p class="qno">질문 ${i+1} / ${QS.length}</p>
+          <h2 class="question">${esc(q)}</h2>
+          <div class="opts">${S.order[i].map((t,k) => `<button class="opt" type="button" data-t="${t}" aria-pressed="${cur===t}"><b>${k+1}</b><span>${esc(options[KEYS.indexOf(t)])}</span></button>`).join("")}</div>
+          <div class="navrow"><button class="btn ghost sm" id="prev" type="button">이전</button><button class="btn primary sm" id="next" type="button" ${cur?"":"disabled"}>다음</button></div>
+        </section>`;
+        root.querySelectorAll(".opt").forEach(b => b.onclick = () => { S.answers[i] = b.dataset.t; renderStudent(); });
+        $("prev").onclick = () => { if (i === 0) { S.step = "confirm"; } else S.q--; renderStudent(); };
+        $("next").onclick = () => { if (i === QS.length-1) S.step = "friends"; else S.q++; renderStudent(); };
+        return;
+      }
+      if (S.step === "friends") {
+        const list = (S.roster || []).filter(s => s.gender === S.me.gender && s.id !== S.me.id);
+        root.innerHTML = `<section class="ticket">
+          <div class="punches">${QS.map(() => `<span class="on"></span>`).join("")}<span class="${S.wishes.length?"on":""}"></span></div>
+          <p class="qno">마지막 단계</p>
+          <h2 class="question">같이 다니고 싶은 친구를 골라 주세요</h2>
+          <p class="lead">1명부터 ${MAX_WISH}명까지 고를 수 있어요. <b>선생님만 볼 수 있고 친구들은 몰라요.</b> 고른 친구 중 적어도 1명과는 같은 모둠이 되도록 최대한 맞춰 볼게요.</p>
+          <p class="pickcount">${S.wishes.length} / ${MAX_WISH}명 골랐어요</p>
+          <div class="names" id="wishGrid">${nameButtons(list, S.wishes)}</div>
+          <p class="err" id="fErr">${esc(S.msg)}</p>
+          <div class="navrow"><button class="btn ghost sm" id="prev" type="button">이전</button><button class="btn primary" id="submit" type="button" ${S.wishes.length?"":"disabled"}>제출하고 결과 보기</button></div>
+          <p class="hint" style="margin-top:14px;text-align:center"><button class="link" type="button" id="anyone">누구와 같은 모둠이어도 괜찮아요</button></p>
+        </section>`;
+        root.querySelectorAll("#wishGrid .name").forEach(b => b.onclick = () => {
+          const id = b.dataset.id; S.msg = "";
+          if (S.wishes.includes(id)) S.wishes = S.wishes.filter(x => x !== id);
+          else if (S.wishes.length >= MAX_WISH) S.msg = `${MAX_WISH}명까지만 고를 수 있어요. 한 명을 빼고 골라 주세요.`;
+          else S.wishes.push(id);
+          renderStudent();
+        });
+        $("prev").onclick = () => { S.msg = ""; S.step = "q"; S.q = QS.length-1; renderStudent(); };
+        $("submit").onclick = () => submitStudent(S.wishes);
+        $("anyone").onclick = () => { if (confirm("친구를 고르지 않고 제출할까요?")) submitStudent([]); };
+        return;
+      }
+      if (S.step === "saving") {
+        root.innerHTML = `<section class="ticket"><p class="eyebrow">잠깐만요</p><h1 class="title">결과를 보내는 중…</h1></section>`;
+        return;
+      }
+      if (S.step === "already") {
+        root.innerHTML = `<section class="ticket"><p class="eyebrow">이미 제출했어요</p><h1 class="title">${esc(S.me.name)}의 결과는 이미 있어요</h1>
+          <p class="lead">다시 하고 싶으면 선생님께 말해 주세요.</p><button class="btn primary block" id="home" type="button">처음 화면으로</button></section>`;
+        $("home").onclick = resetStudent; return;
+      }
+      const t = S.type, d = TYPES[t];
+      root.innerHTML = `<section class="ticket result" data-type="${t}">
+        <div class="badge"><strong>${t}</strong></div>
+        <p class="status" style="margin-top:12px">${esc(S.me.name)} 탐험대원은</p>
+        <h1 class="rtype">${d.name}</h1>
+        <p style="margin-top:6px"><strong>${d.line}</strong></p>
+        <p style="margin-top:12px;line-height:1.6">${d.body}</p>
+        <div class="rrole"><h3>우리 모둠에서 나는</h3><p>${d.role}</p></div>
+        <div class="perf"></div>
+        <p class="status ok">✓ 결과가 선생님께 전달됐어요.</p>
+        <button class="btn ghost block" id="home" type="button">다음 친구에게 넘기기</button>
+      </section>`;
+      $("home").onclick = resetStudent;
+    }
+
+    async function submitStudent(wishes){
+      S.type = computeType(S.answers); S.msg = ""; S.step = "saving"; renderStudent();
+      try {
+        const r = await api.submit(S.me.id, S.type, S.answers, wishes);
+        if (r && r.ok) { S.step = "result"; }
+        else if (r && r.error === "already") { S.step = "already"; }
+        else if (r && r.error === "notfound") { S.step = "friends"; S.msg = "명단에서 이름을 찾을 수 없어요. 선생님께 말해 주세요."; }
+        else { S.step = "friends"; S.msg = "저장하지 못했어요. 다시 눌러 주세요."; }
+      } catch(e) { S.step = "friends"; S.msg = "인터넷 연결이 불안정해요. 잠시 뒤 다시 눌러 주세요."; }
+      renderStudent();
+    }
+
+    /* ================= 선생님 화면 ================= */
+    const T = {pw:null, data:null, tab:"roster", filter:"all", sel:null, groups:null, saveState:"", edit:null};
+    try { T.pw = sessionStorage.getItem("tamheom-pw"); } catch(e) {}
+    const students = () => (T.data && T.data.students) || [];
+    const sById = () => new Map(students().map(s => [s.id, s]));
+    const setting = (k, d) => (T.data && T.data.settings && T.data.settings[k] != null) ? T.data.settings[k] : d;
+
+    function errText(code){
+      return ({bad:"비밀번호가 맞지 않아요.", locked:"비밀번호를 여러 번 틀려서 10분 동안 잠겼어요. 잠시 뒤 다시 해 주세요.", dup:"같은 성별에 같은 이름이 이미 있어요. (예: 김민준B 처럼 구분해 주세요)", name:"이름을 적어 주세요.", invalid:"입력한 값을 확인해 주세요.", notfound:"학생을 찾을 수 없어요. 새로고침해 주세요."})[code] || "저장하지 못했어요. 다시 시도해 주세요.";
+    }
+    function lockTeacher(msg){
+      T.pw = null; T.data = null; T.groups = null; T.sel = null;
+      try { sessionStorage.removeItem("tamheom-pw"); } catch(e) {}
+      renderTeacher(msg);
+    }
+    async function reload(){
+      let r;
+      try { r = await api.load(T.pw); } catch(e) { setSaveState("연결 실패 · 인터넷을 확인해 주세요"); return false; }
+      if (!r.ok) { lockTeacher(errText(r.error)); return false; }
+      T.data = r; return true;
+    }
+    async function call(promise){
+      try { const r = await promise; if (!r.ok && (r.error === "bad" || r.error === "locked")) { lockTeacher(errText(r.error)); return null; } return r; }
+      catch(e) { return {ok:false, error:"network"}; }
+    }
+    function setSaveState(t){ T.saveState = t; const el = $("saveState"); if (el) el.textContent = t; }
+
+    function renderTeacher(lockMsg){
+      const root = $("teacherView");
+      if (!T.pw || !T.data) {
+        $("shell").classList.remove("wide");
+        root.innerHTML = `<section class="ticket">
+          <p class="eyebrow">선생님 전용</p>
+          <h1 class="title">비밀번호를 입력해 주세요</h1>
+          <div class="field"><label for="pwInput">비밀번호</label><input id="pwInput" class="input" type="password" inputmode="numeric" autocomplete="off"></div>
+          <p class="err" id="pwErr">${esc(lockMsg || "")}</p>
+          <button class="btn primary block" type="button" id="unlockBtn">열기</button>
+        </section>`;
+        const go = async () => {
+          const pw = $("pwInput").value.trim(); if (!pw) return $("pwInput").focus();
+          $("unlockBtn").disabled = true; $("pwErr").textContent = "";
+          let r; try { r = await api.load(pw); } catch(e) { r = {ok:false, error:"network"}; }
+          if (r.ok) { T.pw = pw; T.data = r; T.groups = cleanGroups(setting("groups", null)); try { sessionStorage.setItem("tamheom-pw", pw); } catch(e) {} renderTeacher(); }
+          else { $("unlockBtn").disabled = false; $("pwErr").textContent = r.error === "network" ? "연결하지 못했어요. 인터넷과 config.js 설정을 확인해 주세요." : errText(r.error); $("pwInput").select(); }
+        };
+        $("unlockBtn").onclick = go;
+        $("pwInput").onkeydown = e => { if (e.key === "Enter") go(); };
+        setTimeout(() => $("pwInput") && $("pwInput").focus(), 30);
+        return;
+      }
+      $("shell").classList.add("wide");
+      root.innerHTML = `<div class="tbar">
+          <nav class="tabs" aria-label="선생님 메뉴">
+            <button type="button" data-tab="roster" aria-pressed="${T.tab==="roster"}">① 학생 명단</button>
+            <button type="button" data-tab="groups" aria-pressed="${T.tab==="groups"}">② 모둠 짜기</button>
+          </nav>
+          <div class="row"><span class="hint" id="saveState">${esc(T.saveState)}</span><button class="btn ghost sm" type="button" id="lockBtn">잠그기</button></div>
+        </div>
+        <div id="tbody"></div>`;
+      root.querySelectorAll("[data-tab]").forEach(b => b.onclick = async () => {
+        T.tab = b.dataset.tab; T.sel = null;
+        if (T.tab === "groups") await reload();
+        renderTeacher();
+      });
+      $("lockBtn").onclick = () => lockTeacher("");
+      if (T.tab === "roster") renderRoster(); else renderGroupsTab();
+    }
+
+    /* ---------- ① 학생 명단 ---------- */
+    function typeName(t){ return t ? TYPES[t].name : "—"; }
+    function renderRoster(){
+      const all = students(), map = sById();
+      const done = all.filter(s => s.submitted_at).length;
+      const tc = {A:0,B:0,C:0,D:0}; all.forEach(s => s.type && tc[s.type]++);
+      const rows = all.filter(s => T.filter === "all" || s.gender === T.filter);
+      $("tbody").innerHTML = `<div class="desk">
+        <div class="stack">
+          <section class="panel">
+            <h2>현황</h2>
+            <div class="tally">
+              <div><b>${all.length}</b>전체</div><div><b>${done}</b>제출</div>
+              <div><b>${all.filter(s=>s.gender==="여").length}</b>여학생</div><div><b>${all.filter(s=>s.gender==="남").length}</b>남학생</div>
+            </div>
+            <div class="tally">${KEYS.map(t => `<div><b>${tc[t]}</b>${TYPES[t].name}</div>`).join("")}</div>
+            ${all.length && done < all.length ? `<p class="hint">아직 안 한 학생: ${esc(all.filter(s=>!s.submitted_at).map(s=>s.name).join(", "))}</p>` : ""}
+          </section>
+          <section class="panel">
+            <h2>학생 추가</h2>
+            <div class="row"><input id="addName" class="input" style="flex:1;min-width:120px" placeholder="이름" autocomplete="off" maxlength="20">
+              <select id="addGender" class="input" style="width:80px" aria-label="성별"><option>여</option><option>남</option></select>
+              <button class="btn sm" type="button" id="addOne">추가</button></div>
+            <div class="field"><label for="pasteBox">여러 명 한꺼번에 (한 줄에 "이름 성별")</label>
+              <textarea id="pasteBox" class="input" placeholder="김하늘 여&#10;박준 남"></textarea>
+              <button class="btn sm ghost" type="button" id="addMany">한꺼번에 추가</button></div>
+            <p class="err" id="addErr"></p>
+            ${REMOTE ? "" : `<p class="hint">체험 모드 전용: <button class="link" type="button" id="sampleBtn">샘플 학생 31명(여 17·남 14)으로 연습하기</button></p>`}
+          </section>
+          <section class="panel">
+            <h2>비밀번호 바꾸기</h2>
+            <div class="row"><input id="newPw" class="input" style="flex:1;min-width:120px" type="password" inputmode="numeric" placeholder="새 비밀번호 (4자리 이상)" autocomplete="new-password">
+              <button class="btn sm ghost" type="button" id="pwBtn">바꾸기</button></div>
+            <p class="err" id="pwMsg"></p>
+          </section>
+        </div>
+        <div class="stack">
+          <section class="panel">
+            <div class="row spaced"><h2>명단</h2>
+              <div class="row"><div class="mini" role="group" aria-label="보기">${[["all","전체"],["여","여"],["남","남"]].map(([k,l]) => `<button type="button" data-f="${k}" aria-pressed="${T.filter===k}">${l}</button>`).join("")}</div>
+              <button class="btn ghost sm" type="button" id="refreshBtn">새로고침</button></div></div>
+            <p class="hint">학생이 제출하면 자동으로 나타나요(15초마다). 줄을 누르면 이름·성별·유형·희망 친구를 고칠 수 있어요.</p>
+            ${rows.length ? `<div class="tablewrap"><table>
+              <thead><tr><th>이름</th><th>성별</th><th>유형</th><th>희망 친구</th><th>상태</th></tr></thead>
+              <tbody>${rows.map(s => `<tr data-id="${esc(s.id)}">
+                <td><button class="rowname" type="button" data-id="${esc(s.id)}">${esc(s.name)}</button></td>
+                <td>${s.gender}</td><td>${typeName(s.type)}</td>
+                <td class="wrap">${esc((s.wishes||[]).map(w => map.get(w)?.name).filter(Boolean).join(", ")) || "—"}</td>
+                <td>${s.submitted_at ? `<span class="pill done" title="${fmtTime(s.submitted_at)}">제출</span>` : s.type ? `<span class="pill manual">직접 입력</span>` : `<span class="pill">미제출</span>`}</td>
+              </tr>`).join("")}</tbody></table></div>`
+              : `<div class="empty">${all.length ? "이 성별 학생이 없어요." : "아직 명단이 없어요. 왼쪽에서 학생을 추가해 주세요."}</div>`}
+          </section>
+        </div>
+      </div>`;
+      $("tbody").querySelectorAll("[data-f]").forEach(b => b.onclick = () => { T.filter = b.dataset.f; renderRoster(); });
+      $("tbody").querySelectorAll("tbody tr").forEach(tr => tr.onclick = () => openEdit(tr.dataset.id));
+      $("refreshBtn").onclick = async () => { if (await reload()) renderRoster(); };
+      $("addOne").onclick = async () => {
+        const name = $("addName").value.trim(); if (!name) return $("addName").focus();
+        const r = await call(api.saveStudent(T.pw, {name, gender:$("addGender").value})); if (!r) return;
+        if (!r.ok) return $("addErr").textContent = errText(r.error);
+        await reload(); renderRoster(); $("addName").focus();
+      };
+      $("addName").onkeydown = e => { if (e.key === "Enter") $("addOne").click(); };
+      $("addMany").onclick = async () => {
+        const lines = $("pasteBox").value.split(/\n/).map(x => x.trim()).filter(Boolean);
+        const rows = [], badLines = [];
+        lines.forEach(line => {
+          const p = line.split(/[\s,\t]+/).filter(Boolean);
+          const g = p.find(x => /^(남|여|남자|여자|남학생|여학생|M|F)$/i.test(x));
+          const name = p.filter(x => x !== g).join("");
+          const gender = g ? (/^(여|여자|여학생|F)$/i.test(g) ? "여" : "남") : null;
+          if (name && gender) rows.push({name, gender}); else badLines.push(line);
+        });
+        if (!rows.length) return $("addErr").textContent = "\"김하늘 여\"처럼 한 줄에 이름과 성별을 적어 주세요.";
+        const r = await call(api.addMany(T.pw, rows)); if (!r) return;
+        if (!r.ok) return $("addErr").textContent = errText(r.error);
+        await reload(); renderRoster();
+        const skipped = rows.length - r.added;
+        $("addErr").innerHTML = `<span class="ok">${r.added}명 추가했어요.</span>` + (skipped ? ` 이미 있는 이름 ${skipped}명은 건너뛰었어요.` : "") + (badLines.length ? ` 읽지 못한 줄: ${esc(badLines.join(" / "))}` : "");
+      };
+      $("pwBtn").onclick = async () => {
+        const next = $("newPw").value.trim();
+        if (next.length < 4) return $("pwMsg").textContent = "4자리 이상으로 적어 주세요.";
+        if (!confirm(`비밀번호를 '${next}'(으)로 바꿀까요?`)) return;
+        const r = await call(api.changePw(T.pw, next)); if (!r) return;
+        if (!r.ok) return $("pwMsg").textContent = errText(r.error);
+        T.pw = next; try { sessionStorage.setItem("tamheom-pw", next); } catch(e) {}
+        $("newPw").value = ""; $("pwMsg").innerHTML = `<span class="ok">바꿨어요. 다음부터 새 비밀번호로 열어 주세요.</span>`;
+      };
+      if ($("sampleBtn")) $("sampleBtn").onclick = addSample;
+    }
+
+    async function addSample(){
+      if (students().length && !confirm("지금 명단에 샘플 학생을 더할까요?")) return;
+      const sur = "김이박최정강조윤장임한오서신권";
+      const girls = ["서연","지우","하은","민서","수아","지아","서윤","하린","윤서","채원","예린","소율","다은","가은","나연","유나","시은"];
+      const boys = ["민준","서준","도윤","예준","시우","주원","하준","지호","준서","건우","현우","우진","선우","연우"];
+      const rows = [...girls.map((n,i) => ({name:sur[i % sur.length] + n, gender:"여"})), ...boys.map((n,i) => ({name:sur[(i+5) % sur.length] + n, gender:"남"}))];
+      await api.addMany(T.pw, rows); await reload();
+      for (const g of GENDERS) {
+        const list = students().filter(s => s.gender === g);
+        for (const s of list) {
+          const others = shuffle(list.filter(x => x.id !== s.id)).slice(0, 1 + Math.floor(Math.random() * MAX_WISH));
+          await api.saveStudent(T.pw, {id:s.id, name:s.name, gender:g, type:KEYS[Math.floor(Math.random()*4)], wishes:others.map(x => x.id)});
+        }
+      }
+      await reload(); renderRoster();
+    }
+
+    // 수정 창
+    function openEdit(id){
+      const s = students().find(x => x.id === id); if (!s) return;
+      T.edit = {id:s.id, name:s.name, gender:s.gender, type:s.type || "", wishes:[...(s.wishes||[])], submitted_at:s.submitted_at, origGender:s.gender};
+      renderEdit(); $("editDlg").showModal();
+    }
+    function renderEdit(msg){
+      const E = T.edit, dlg = $("editDlg");
+      const pool = students().filter(s => s.gender === E.gender && s.id !== E.id).sort(byName);
+      dlg.innerHTML = `<div class="dlg">
+        <h2 id="editTitle">${esc(E.name)} 고치기</h2>
+        <div class="field"><label for="eName">이름</label><input id="eName" class="input" value="${esc(E.name)}" maxlength="20" autocomplete="off"></div>
+        <div class="field"><span class="lab">성별</span><div class="seg2" role="group" aria-label="성별">${GENDERS.map(g => `<button type="button" data-eg="${g}" aria-pressed="${E.gender===g}">${g}</button>`).join("")}</div></div>
+        <div class="field"><label for="eType">유형</label><select id="eType" class="input"><option value="">미정</option>${KEYS.map(t => `<option value="${t}" ${E.type===t?"selected":""}>${t} ${TYPES[t].name}</option>`).join("")}</select></div>
+        <div class="field"><span class="lab">희망 친구 (최대 ${MAX_WISH}명 · ${E.wishes.length}명 선택)</span>
+          ${pool.length ? `<div class="names small" id="eWish">${nameButtons(pool, E.wishes)}</div>` : `<p class="hint">같은 성별 친구가 아직 없어요.</p>`}</div>
+        <p class="hint">${E.submitted_at ? `학생이 ${fmtTime(E.submitted_at)}에 제출했어요.` : "학생이 아직 제출하지 않았어요."}</p>
+        <p class="err" id="eErr">${esc(msg || "")}</p>
+        <div class="row spaced">
+          <div class="row"><button class="btn danger sm" type="button" id="eDel">삭제</button>${E.submitted_at || E.type ? `<button class="btn ghost sm" type="button" id="eReset">응답 초기화</button>` : ""}</div>
+          <div class="row"><button class="btn ghost sm" type="button" id="eClose">닫기</button><button class="btn primary sm" type="button" id="eSave">저장</button></div>
+        </div>
+      </div>`;
+      const keep = () => { E.name = $("eName").value; E.type = $("eType").value; };
+      dlg.querySelectorAll("[data-eg]").forEach(b => b.onclick = () => { keep(); if (E.gender !== b.dataset.eg) { E.gender = b.dataset.eg; E.wishes = []; } renderEdit(); });
+      dlg.querySelectorAll("#eWish .name").forEach(b => b.onclick = () => {
+        keep(); const id = b.dataset.id;
+        if (E.wishes.includes(id)) E.wishes = E.wishes.filter(x => x !== id);
+        else if (E.wishes.length >= MAX_WISH) return renderEdit(`희망 친구는 ${MAX_WISH}명까지예요.`);
+        else E.wishes.push(id);
+        renderEdit();
+      });
+      $("eClose").onclick = () => dlg.close();
+      $("eSave").onclick = async () => {
+        keep();
+        const r = await call(api.saveStudent(T.pw, {id:E.id, name:E.name.trim(), gender:E.gender, type:E.type, wishes:E.wishes})); if (!r) return;
+        if (!r.ok) return renderEdit(errText(r.error));
+        dlg.close(); await reload(); renderTeacher();
+      };
+      $("eDel").onclick = async () => {
+        if (!confirm(`${E.name} 학생을 명단에서 지울까요? 결과와 희망 친구도 함께 지워져요.`)) return;
+        const r = await call(api.remove(T.pw, E.id)); if (!r) return;
+        if (!r.ok) return renderEdit(errText(r.error));
+        dlg.close(); await reload(); renderTeacher();
+      };
+      if ($("eReset")) $("eReset").onclick = async () => {
+        if (!confirm(`${E.name} 학생의 유형과 희망 친구를 지우고, 테스트를 다시 할 수 있게 할까요?`)) return;
+        keep();
+        const r = await call(api.saveStudent(T.pw, {id:E.id, name:E.name.trim(), gender:E.gender, reset:true})); if (!r) return;
+        if (!r.ok) return renderEdit(errText(r.error));
+        dlg.close(); await reload(); renderTeacher();
+      };
+    }
+
+    /* ---------- ② 모둠 짜기 ---------- */
+    function suggestSizes(n){
+      if (n <= 0) return "";
+      if (n <= MAX_GROUP) return String(n);
+      let best = null, bestScore = -Infinity;
+      for (let c = 0; c * 5 <= n; c++) for (let a = 0; a * 4 + c * 5 <= n; a++) {
+        const rest = n - a*4 - c*5; if (rest % 3) continue; const b = rest / 3;
+        const score = a*10 - b*3 - c*4;
+        if (score > bestScore) { bestScore = score; best = [...Array(a).fill(4), ...Array(c).fill(5), ...Array(b).fill(3)]; }
+      }
+      return best ? best.join(",") : String(n);
+    }
+    function parseSizes(str, n){
+      const arr = String(str || "").split(/[^0-9]+/).filter(Boolean).map(Number);
+      if (!n) return {ok:true, sizes:[], msg:"학생이 없어요."};
+      if (!arr.length) return {ok:false, msg:"모둠별 인원을 적어 주세요. 예: 4,4,4,5"};
+      if (arr.some(x => x < 1)) return {ok:false, msg:"0명인 모둠은 뺄게요. 숫자를 확인해 주세요."};
+      if (arr.some(x => x > MAX_GROUP)) return {ok:false, msg:`한 모둠은 ${MAX_GROUP}명까지만 돼요.`};
+      const sum = arr.reduce((a,b) => a+b, 0);
+      if (sum !== n) return {ok:false, msg:`합계가 ${sum}명이에요. ${n}명이 되도록 맞춰 주세요. ('추천'을 누르면 자동으로 맞춰요)`};
+      const odd = arr.filter(x => x % 2);
+      return {ok:true, sizes:arr, msg:`✓ ${arr.length}모둠` + (odd.length ? ` · 홀수 모둠 ${odd.length}개(${odd.join(", ")}명)` : " · 모두 짝수")};
+    }
+    function parseCons(text){
+      const list = students(), names = new Map();
+      list.forEach(s => { if (!names.has(s.name)) names.set(s.name, []); names.get(s.name).push(s); });
+      const sets = [], errors = [];
+      String(text || "").split(/\n/).map(x => x.trim()).filter(Boolean).forEach(line => {
+        const parts = line.split(/[\s,·/]+/).filter(Boolean);
+        const ids = [];
+        parts.forEach(n => {
+          const m = names.get(n);
+          if (!m) errors.push(`'${n}'은(는) 명단에 없어요`);
+          else if (m.length > 1) errors.push(`'${n}'은(는) 남녀 모두 있어서 구분이 안 돼요`);
+          else ids.push(m[0].id);
+        });
+        if (parts.length < 2) errors.push(`"${line}" 줄에는 이름이 2명 이상 있어야 해요`);
+        if (ids.length >= 2) sets.push(ids);
+      });
+      return {sets, errors};
+    }
+    function consPairs(){
+      const c = setting("constraints", {together:"", apart:""});
+      const map = sById(), tog = [], apt = [], cross = [];
+      parseCons(c.together).sets.forEach(ids => { for (let i=0;i<ids.length;i++) for (let j=i+1;j<ids.length;j++) {
+        const a = map.get(ids[i]), b = map.get(ids[j]);
+        if (a.gender !== b.gender) cross.push(`${a.name}·${b.name}`); else tog.push([ids[i], ids[j]]);
+      }});
+      parseCons(c.apart).sets.forEach(ids => { for (let i=0;i<ids.length;i++) for (let j=i+1;j<ids.length;j++) apt.push([ids[i], ids[j]]); });
+      return {tog, apt, cross};
+    }
+
+    // 모둠 짜기: 조건 위반을 가장 크게, 희망 친구 0명을 그다음으로, 같은 유형 몰림을 가장 작게 벌점 주고 자리를 바꿔 가며 최소화
+    function solve(ids, sizes, tog, apt){
+      const n = ids.length, k = sizes.length; if (!n) return [];
+      const map = sById(), ix = new Map(ids.map((id,i) => [id,i]));
+      const W = ids.map(id => (map.get(id).wishes || []).map(w => ix.get(w)).filter(v => v !== undefined));
+      const TP = ids.map(id => { const t = map.get(id).type; return t ? KEYS.indexOf(t) : -1; });
+      const pairs = arr => arr.map(([a,b]) => [ix.get(a), ix.get(b)]).filter(p => p[0] !== undefined && p[1] !== undefined);
+      const TG = pairs(tog), AP = pairs(apt);
+      const cnt = new Array(k*4);
+      function cost(g){
+        let c = 0;
+        for (const [a,b] of TG) if (g[a] !== g[b]) c += 1000;
+        for (const [a,b] of AP) if (g[a] === g[b]) c += 1000;
+        for (let i=0;i<n;i++) { const w = W[i]; if (!w.length) continue; let m = 0; for (const j of w) if (g[j] === g[i]) m++; c += m ? -4*m : 300; }
+        cnt.fill(0); for (let i=0;i<n;i++) if (TP[i] >= 0) cnt[g[i]*4 + TP[i]]++;
+        for (const x of cnt) c += 5 * x * (x-1);
+        return c;
+      }
+      let best = null, bestC = Infinity;
+      const RESTARTS = 40, STEPS = 4000;
+      for (let r = 0; r < RESTARTS; r++) {
+        const perm = shuffle([...Array(n).keys()]), g = new Array(n); let p = 0;
+        sizes.forEach((sz, gi) => { for (let t = 0; t < sz; t++) g[perm[p++]] = gi; });
+        let cur = cost(g);
+        if (cur < bestC) { bestC = cur; best = [...g]; }
+        for (let s = 0; s < STEPS; s++) {
+          const a = Math.floor(Math.random()*n), b = Math.floor(Math.random()*n);
+          if (g[a] === g[b]) continue;
+          [g[a], g[b]] = [g[b], g[a]];
+          const next = cost(g), d = next - cur, temp = Math.max(0.3, 60 * (1 - s/STEPS));
+          if (d <= 0 || Math.random() < Math.exp(-d/temp)) { cur = next; if (cur < bestC) { bestC = cur; best = [...g]; } }
+          else [g[a], g[b]] = [g[b], g[a]];
+        }
+      }
+      const out = sizes.map(() => []); best.forEach((gi, i) => out[gi].push(ids[i]));
+      return out.map(arr => arr.sort((x,y) => byName(map.get(x), map.get(y))));
+    }
+
+    function cleanGroups(raw){
+      if (!raw || typeof raw !== "object") return null;
+      const out = {at:raw.at || Date.now()};
+      GENDERS.forEach(g => { out[g] = Array.isArray(raw[g]) ? raw[g].map(a => Array.isArray(a) ? a.slice() : []) : []; });
+      return out;
+    }
+    function groupView(){
+      // 현재 명단 기준으로 정리: 지워진 학생 빼기, 성별 바뀐 학생 빼기, 모둠 없는 학생 따로
+      const map = sById(), view = {};
+      GENDERS.forEach(g => {
+        const groups = (T.groups && T.groups[g] || []).map(a => a.filter(id => map.get(id) && map.get(id).gender === g));
+        const seen = new Set(); groups.forEach(a => a.forEach(id => seen.add(id)));
+        const pool = students().filter(s => s.gender === g && !seen.has(s.id)).map(s => s.id);
+        view[g] = {groups, pool};
+      });
+      if (T.groups) GENDERS.forEach(g => T.groups[g] = view[g].groups);
+      return view;
+    }
+    function evaluate(view){
+      const map = sById(), {tog, apt} = consPairs(), res = {};
+      GENDERS.forEach(g => {
+        const {groups} = view[g], where = new Map();
+        groups.forEach((a,i) => a.forEach(id => where.set(id, i)));
+        const unmet = new Set(), gw = groups.map(() => []);
+        groups.forEach(a => a.forEach(id => {
+          const w = (map.get(id).wishes || []).filter(x => map.has(x));
+          if (w.length && !w.some(x => where.get(x) === where.get(id))) unmet.add(id);
+        }));
+        groups.forEach((a,i) => { if (a.length > MAX_GROUP) gw[i].push(`${a.length}명이에요 (최대 ${MAX_GROUP}명)`); });
+        apt.forEach(([a,b]) => { if (map.get(a).gender === g && where.has(a) && where.get(a) === where.get(b)) gw[where.get(a)].push(`${map.get(a).name}·${map.get(b).name} 떨어져야 해요`); });
+        tog.forEach(([a,b]) => { if (map.get(a).gender === g && where.get(a) !== where.get(b)) { const i = where.has(a) ? where.get(a) : where.get(b); if (i !== undefined) gw[i].push(`${map.get(a).name}·${map.get(b).name} 같은 모둠이어야 해요`); } });
+        res[g] = {unmet, gw};
+      });
+      return res;
+    }
+
+    const saveGroups = debounce(async () => {
+      setSaveState("저장 중…");
+      const r = await call(api.setSetting(T.pw, "groups", T.groups)); if (!r) return;
+      setSaveState(r.ok ? "모둠 저장됨 ✓" : "저장 실패 · 인터넷을 확인해 주세요");
+    }, 500);
+    const saveSetting = debounce(async (key, value) => {
+      setSaveState("저장 중…");
+      const r = await call(api.setSetting(T.pw, key, value)); if (!r) return;
+      setSaveState(r.ok ? "저장됨 ✓" : "저장 실패 · 인터넷을 확인해 주세요");
+    }, 600);
+
+    function renderGroupsTab(){
+      const all = students(), sizesSet = setting("sizes", {}), cons = setting("constraints", {together:"", apart:""});
+      const count = g => all.filter(s => s.gender === g).length;
+      const sizeVal = g => sizesSet[g] != null && sizesSet[g] !== "" ? sizesSet[g] : suggestSizes(count(g));
+      const missing = all.filter(s => !s.type).length;
+      $("tbody").innerHTML = `<div class="desk">
+        <div class="stack">
+          <section class="panel">
+            <h2>모둠 인원</h2>
+            ${GENDERS.map(g => `<div class="field"><label for="size-${g}">${g}학생 ${count(g)}명 → 모둠별 인원</label>
+              <div class="row"><input id="size-${g}" class="input" style="flex:1" data-size="${g}" value="${esc(sizeVal(g))}" inputmode="numeric" autocomplete="off"><button class="btn ghost sm" type="button" data-auto="${g}">추천</button></div>
+              <p class="hint" id="sizeMsg-${g}"></p></div>`).join("")}
+            <p class="hint">쉼표로 나눠 적어요. 한 모둠은 최대 ${MAX_GROUP}명. 추천은 4명 모둠을 최대한 많이 만들어요.</p>
+          </section>
+          <section class="panel">
+            <h2>친구 조건</h2>
+            <div class="field"><label for="togBox">꼭 같은 모둠</label>
+              <textarea id="togBox" class="input" placeholder="한 줄에 같은 모둠이 되어야 할 학생들&#10;예: 김하늘 이솔">${esc(cons.together)}</textarea><p class="hint" id="togMsg"></p></div>
+            <div class="field"><label for="aptBox">꼭 다른 모둠</label>
+              <textarea id="aptBox" class="input" placeholder="한 줄에 서로 떨어져야 할 학생들&#10;예: 박준 최민 (세 명 이상도 가능)">${esc(cons.apart)}</textarea><p class="hint" id="aptMsg"></p></div>
+          </section>
+          <section class="panel">
+            <button class="btn primary" type="button" id="makeBtn">${T.groups ? "모둠 새로 짜기" : "모둠 짜기"}</button>
+            <p class="hint" id="makeHint">${missing ? `아직 유형이 없는 학생 ${missing}명도 함께 편성돼요.` : ""}</p>
+          </section>
+        </div>
+        <div class="stack"><section class="panel" id="outPanel"></section></div>
+      </div>`;
+
+      const checkSizes = () => GENDERS.map(g => { const r = parseSizes($("size-"+g).value, count(g)); const el = $("sizeMsg-"+g); el.textContent = r.msg; el.style.color = r.ok ? "var(--c)" : "var(--a)"; return r; });
+      const checkCons = () => {
+        [["togBox","togMsg"],["aptBox","aptMsg"]].forEach(([box,msg]) => {
+          const {sets, errors} = parseCons($(box).value), el = $(msg);
+          if (errors.length) { el.textContent = "⚠ " + errors.join(" · "); el.style.color = "var(--a)"; }
+          else { el.textContent = sets.length ? `✓ ${sets.length}줄 적용돼요` : ""; el.style.color = "var(--c)"; }
+        });
+        const {cross} = consPairs();
+        if (cross.length) { $("togMsg").textContent += ` ⚠ 남녀는 같은 모둠이 될 수 없어요: ${cross.join(", ")}`; $("togMsg").style.color = "var(--a)"; }
+      };
+      const storeSizes = () => { const v = {}; GENDERS.forEach(g => v[g] = $("size-"+g).value.trim()); T.data.settings.sizes = v; saveSetting("sizes", v); };
+      const storeCons = () => { const v = {together:$("togBox").value, apart:$("aptBox").value}; T.data.settings.constraints = v; saveSetting("constraints", v); };
+      checkSizes(); checkCons();
+      $("tbody").querySelectorAll("[data-size]").forEach(el => el.oninput = () => { checkSizes(); storeSizes(); });
+      $("tbody").querySelectorAll("[data-auto]").forEach(b => b.onclick = () => { $("size-"+b.dataset.auto).value = suggestSizes(count(b.dataset.auto)); checkSizes(); storeSizes(); });
+      $("togBox").oninput = () => { storeCons(); checkCons(); renderOut(); };
+      $("aptBox").oninput = () => { storeCons(); checkCons(); renderOut(); };
+      $("makeBtn").onclick = () => {
+        const sz = checkSizes();
+        if (!all.length) return $("makeHint").textContent = "먼저 ① 학생 명단에 학생을 넣어 주세요.";
+        if (sz.some(r => !r.ok)) return $("makeHint").textContent = "모둠 인원 합계를 먼저 맞춰 주세요.";
+        if (T.groups && !confirm("지금 모둠을 지우고 새로 짤까요? 직접 옮긴 내용도 사라져요.")) return;
+        const {tog, apt} = consPairs(), next = {at:Date.now()};
+        GENDERS.forEach((g, gi) => { next[g] = solve(all.filter(s => s.gender === g).map(s => s.id), sz[gi].sizes, tog, apt); });
+        T.groups = next; T.sel = null; saveGroups();
+        $("makeBtn").textContent = "모둠 새로 짜기"; $("makeHint").textContent = "";
+        renderOut();
+      };
+      renderOut();
+    }
+
+    function renderOut(){
+      const out = $("outPanel"); if (!out) return;
+      if (!T.groups) { out.innerHTML = `<h2>모둠 결과</h2><div class="empty">왼쪽에서 인원과 조건을 확인하고 '모둠 짜기'를 눌러 주세요.</div>`; return; }
+      const map = sById(), view = groupView(), ev = evaluate(view), {cross} = consPairs();
+      const unmetAll = GENDERS.flatMap(g => [...ev[g].unmet]).map(id => map.get(id).name);
+      const warnAll = GENDERS.flatMap(g => ev[g].gw.flat());
+      const poolAll = GENDERS.flatMap(g => view[g].pool);
+      const sel = T.sel && map.get(T.sel);
+      const issues = [];
+      if (unmetAll.length) issues.push(`희망 친구와 다른 모둠이 된 학생 ${unmetAll.length}명: ${esc(unmetAll.join(", "))} — 희망이 서로 엇갈리거나 '꼭 다른 모둠' 조건과 겹쳐서 모두 맞출 수 없을 때 생겨요. 직접 옮겨서 조정할 수 있어요.`);
+      warnAll.forEach(w => issues.push(esc(w)));
+      if (poolAll.length) issues.push(`아직 모둠이 없는 학생 ${poolAll.length}명 (아래에서 모둠으로 옮겨 주세요)`);
+      if (cross.length) issues.push(`남녀가 섞인 '꼭 같은 모둠' 조건은 적용하지 않았어요: ${esc(cross.join(", "))}`);
+
+      out.innerHTML = `<div class="row spaced"><h2>모둠 결과</h2>
+          <div class="row"><button class="btn ghost sm" type="button" id="bigBtn">크게 보기</button><button class="btn ghost sm" type="button" id="printBtn">인쇄</button><button class="btn sm" type="button" id="copyBtn">텍스트 복사</button></div></div>
+        ${issues.length ? `<div class="note"><b>확인할 것</b><ul>${issues.map(x => `<li>${x}</li>`).join("")}</ul></div>`
+          : `<div class="note ok">희망 친구를 고른 학생은 모두 그중 1명 이상과 같은 모둠이에요. 친구 조건도 모두 지켜졌어요.</div>`}
+        <p class="hint">${sel ? `<b>${esc(sel.name)}</b> 선택됨 → 바꿀 학생을 누르거나 모둠의 '여기로'를 누르세요. (다시 누르면 취소)` : "학생 이름을 누르고 다른 학생을 누르면 서로 자리를 바꿔요. '여기로'를 누르면 그 모둠으로 옮겨요. 바꿀 때마다 자동 저장돼요."}</p>
+        ${GENDERS.filter(g => view[g].groups.length || view[g].pool.length).map(g => `<section class="gsec">
+          <div class="row spaced"><h3>${g}학생</h3><button class="btn ghost sm" type="button" data-addg="${g}">+ 모둠 추가</button></div>
+          <div class="groups">
+            ${view[g].groups.map((arr, i) => {
+              const canHere = sel && sel.gender === g && !arr.includes(sel.id);
+              return `<div class="group ${ev[g].gw[i].length ? "warn" : ""}">
+                <div class="ghead"><h4>${g} ${i+1}모둠 · ${arr.length}명</h4>
+                  ${canHere ? `<button class="here" type="button" data-here="${g}|${i}">여기로</button>` : !arr.length ? `<button class="xs" type="button" data-delg="${g}|${i}">모둠 삭제</button>` : ""}</div>
+                ${arr.map(id => chip(map.get(id), ev[g].unmet.has(id))).join("")}
+                ${ev[g].gw[i].map(w => `<p class="gwarn">⚠ ${esc(w)}</p>`).join("")}
+              </div>`;
+            }).join("")}
+            ${view[g].pool.length || (sel && sel.gender === g && !view[g].pool.includes(sel.id)) ? `<div class="group pool">
+              <div class="ghead"><h4>모둠 없음 · ${view[g].pool.length}명</h4>${sel && sel.gender === g && !view[g].pool.includes(sel.id) ? `<button class="here" type="button" data-here="${g}|pool">빼기</button>` : ""}</div>
+              ${view[g].pool.map(id => chip(map.get(id), false)).join("")}
+            </div>` : ""}
+          </div>
+        </section>`).join("")}`;
+
+      out.querySelectorAll(".chip").forEach(b => b.onclick = () => onChip(b.dataset.id));
+      out.querySelectorAll("[data-here]").forEach(b => b.onclick = () => { const [g, i] = b.dataset.here.split("|"); moveTo(g, i === "pool" ? null : +i); });
+      out.querySelectorAll("[data-addg]").forEach(b => b.onclick = () => { T.groups[b.dataset.addg].push([]); saveGroups(); renderOut(); });
+      out.querySelectorAll("[data-delg]").forEach(b => b.onclick = () => { const [g, i] = b.dataset.delg.split("|"); T.groups[g].splice(+i, 1); saveGroups(); renderOut(); });
+      $("copyBtn").onclick = copyText;
+      $("bigBtn").onclick = () => openBig(false);
+      $("printBtn").onclick = () => openBig(true);
+    }
+    function chip(s, unmet){
+      const cls = s.type ? "t" + s.type : "t0";
+      return `<button class="chip ${T.sel === s.id ? "sel" : ""} ${unmet ? "unmet" : ""}" type="button" data-id="${esc(s.id)}" aria-pressed="${T.sel === s.id}">
+        <span>${esc(s.name)}</span><small class="${cls}">${s.type ? TYPES[s.type].name : "미제출"}</small>${unmet ? "<em>희망 친구와 떨어짐</em>" : ""}</button>`;
+    }
+    function locate(id){
+      const s = sById().get(id); if (!s) return null;
+      const groups = T.groups[s.gender] || [];
+      for (let i = 0; i < groups.length; i++) { const j = groups[i].indexOf(id); if (j >= 0) return {g:s.gender, i, j}; }
+      return {g:s.gender, i:null, j:null};
+    }
+    function onChip(id){
+      if (!T.sel || T.sel === id) { T.sel = T.sel === id ? null : id; return renderOut(); }
+      const a = locate(T.sel), b = locate(id);
+      if (!a || !b || a.g !== b.g || a.i === b.i) { T.sel = id; return renderOut(); }
+      const G = T.groups[a.g];
+      if (a.i === null) { G[b.i][b.j] = T.sel; }            // 모둠 없는 학생 ↔ 모둠 학생
+      else if (b.i === null) { G[a.i][a.j] = id; }
+      else { G[a.i][a.j] = id; G[b.i][b.j] = T.sel; }
+      T.sel = null; saveGroups(); renderOut();
+    }
+    function moveTo(g, i){
+      const a = locate(T.sel); if (!a || a.g !== g) return;
+      const G = T.groups[g];
+      if (a.i !== null) G[a.i].splice(a.j, 1);
+      if (i !== null) G[i].push(T.sel);
+      T.sel = null; saveGroups(); renderOut();
+    }
+    function copyText(){
+      const map = sById(), view = groupView();
+      const lines = [];
+      GENDERS.forEach(g => {
+        view[g].groups.forEach((a, i) => lines.push(`${g} ${i+1}모둠: ${a.map(id => { const s = map.get(id); return s.name + (s.type ? `(${TYPES[s.type].name})` : ""); }).join(", ")}`));
+        if (view[g].pool.length) lines.push(`${g} 모둠 없음: ${view[g].pool.map(id => map.get(id).name).join(", ")}`);
+      });
+      const text = lines.join("\n");
+      const done = () => { $("copyBtn").textContent = "복사했어요 ✓"; setTimeout(() => $("copyBtn") && ($("copyBtn").textContent = "텍스트 복사"), 1500); };
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(done).catch(() => { window.prompt("아래 내용을 복사해 주세요", text); });
+    }
+    function openBig(print){
+      const map = sById(), view = groupView(), big = $("big");
+      big.innerHTML = `<div class="bigbar"><h1>현장체험학습 모둠</h1><div class="row"><button class="btn ghost" type="button" id="bigPrint">인쇄</button><button class="btn" type="button" id="bigClose">닫기</button></div></div>
+        ${GENDERS.filter(g => view[g].groups.length).map(g => `<h2>${g}학생</h2><div class="biggroups">${view[g].groups.map((a, i) => `<div class="bigcard"><h3>${i+1}모둠</h3><ul>${a.map(id => { const s = map.get(id); return `<li><span>${esc(s.name)}</span><small>${s.type ? TYPES[s.type].name : ""}</small></li>`; }).join("")}</ul></div>`).join("")}</div>`).join("")}`;
+      big.hidden = false;
+      $("bigClose").onclick = () => { big.hidden = true; };
+      $("bigPrint").onclick = () => window.print();
+      if (print) setTimeout(() => window.print(), 100);
+    }
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("big").hidden) $("big").hidden = true; });
+
+    /* ================= 화면 전환 ================= */
+    function show(teacher){
+      $("studentView").hidden = teacher; $("teacherView").hidden = !teacher;
+      $("tabStudent").setAttribute("aria-pressed", String(!teacher)); $("tabTeacher").setAttribute("aria-pressed", String(teacher));
+      if (teacher) {
+        if (T.pw && !T.data) { $("teacherView").innerHTML = `<p class="empty">불러오는 중…</p>`; reload().then(ok => { if (ok) T.groups = cleanGroups(setting("groups", null)); renderTeacher(); }); }
+        else if (T.data) { renderTeacher(); reload().then(ok => { if (ok) renderTeacher(); }); }
+        else renderTeacher();
+      } else {
+        $("shell").classList.remove("wide");
+        if (S.step === "pick") loadRoster();
+      }
+    }
+    $("tabStudent").onclick = () => show(false);
+    $("tabTeacher").onclick = () => show(true);
+    setInterval(async () => {
+      if ($("teacherView").hidden || !T.data || T.tab !== "roster" || $("editDlg").open) return;
+      const active = document.activeElement;
+      if (active && /INPUT|TEXTAREA|SELECT/.test(active.tagName)) return;
+      if (await reload()) renderRoster();
+    }, 15000);
+
+    $("modebar").hidden = REMOTE;
+    S.order = QS.map(() => shuffle(KEYS));
+    renderStudent(); loadRoster();
+  })();
+  </script>
+</body>
+</html>

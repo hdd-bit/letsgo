@@ -61,6 +61,9 @@
     .link{border:0;background:none;padding:0;color:var(--brand);text-decoration:underline;font-size:inherit}
     .err{color:var(--a);min-height:20px;margin-top:8px;font-size:14px}
     .ok{color:var(--c)}
+    .or{display:flex;align-items:center;gap:10px;margin-top:18px;color:var(--muted);font-size:13px}.or::before,.or::after{content:"";flex:1;border-top:1px solid var(--line)}
+    .btn.anyone{margin-top:10px;min-height:54px;background:var(--surface);border:2px dashed var(--brand);color:var(--brand);font-size:16px}.btn.anyone:hover{background:var(--brandSoft)}
+    .cheer{margin-top:10px;padding:14px;border-radius:12px;background:var(--okBg);border:1px solid var(--okLine);font-weight:700;line-height:1.6;text-align:center}
     .panel .err:empty{display:none}
 
     .names{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:16px}
@@ -244,8 +247,8 @@
     }
 
     function localApi(){
-      const KEY = "tamheom-local-v1";
-      const fresh = () => ({students:[], settings:{}, pw:"1018"});
+      const KEY = CFG.storageKey || "tamheom-local-v1";
+      const fresh = () => ({students:[], settings:{}, pw:CFG.sharePage ? null : "1018"});
       const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch(e) { return null; } };
       let mem = read() || fresh();
       const sync = () => { mem = read() || mem; };
@@ -289,6 +292,9 @@
           mem.students.forEach(s => s.wishes = s.wishes.filter(x => x !== id)); save(); return {ok:true};
         },
         async setSetting(pw, key, value){ sync(); const e = bad(pw); if (e) return e; mem.settings[key] = value; save(); return {ok:true}; },
+        needsPw(){ sync(); return !mem.pw; },
+        async setFirstPw(next){ sync(); if (mem.pw) return {ok:false, error:"bad"}; if (!next || next.length < 4) return {ok:false, error:"short"}; mem.pw = next; save(); return {ok:true}; },
+        async wipe(pw){ sync(); const e = bad(pw); if (e) return e; mem.students = []; mem.settings = {}; save(); return {ok:true}; },
         async changePw(pw, next){ sync(); const e = bad(pw); if (e) return e; if (!next || next.length < 4) return {ok:false, error:"short"}; mem.pw = next; save(); return {ok:true}; }
       };
     }
@@ -363,7 +369,8 @@
           <datalist id="friendList">${known.map(n => `<option value="${esc(n)}"></option>`).join("")}</datalist>
           <p class="err" id="fErr">${esc(S.msg)}</p>
           <div class="navrow"><button class="btn ghost sm" id="prev" type="button">이전</button><button class="btn primary" id="submit" type="button">제출하고 결과 보기</button></div>
-          <p class="hint" style="margin-top:14px;text-align:center"><button class="link" type="button" id="anyone">누구와 같은 모둠이어도 괜찮아요</button></p>
+          <p class="or">또는</p>
+          <button class="btn anyone block" type="button" id="anyone">🙌 누구와 같은 모둠이어도 괜찮아요</button>
         </section>`;
         const read = () => { S.wishNames = [0,1,2].map(k => $("w"+k).value); };
         $("prev").onclick = () => { read(); S.msg = ""; S.step = "q"; S.q = QS.length-1; renderStudent(); };
@@ -396,8 +403,9 @@
         <p style="margin-top:12px;line-height:1.6">${d.body}</p>
         <div class="rrole"><h3>우리 모둠에서 나는</h3><p>${d.role}</p></div>
         <div class="perf"></div>
-        <p class="status ok">✓ 결과가 선생님께 전달됐어요.</p>
-        <button class="btn ghost block" id="home" type="button">다음 친구에게 넘기기</button>
+        <p class="status ok">✓ 선생님께 전달했어요!</p>
+        <p class="cheer">누구랑 있든 즐거움을 찾아내는<br>멋진 학생이 되어 봐요! 🎡</p>
+        <button class="btn primary block" id="home" type="button">제출하기</button>
       </section>`;
       $("home").onclick = resetStudent;
     }
@@ -456,6 +464,31 @@
 
     function renderTeacher(lockMsg){
       const root = $("teacherView");
+      if ((!T.pw || !T.data) && api.needsPw && api.needsPw()) {
+        $("shell").classList.remove("wide");
+        root.innerHTML = `<section class="ticket">
+          <p class="eyebrow">처음 오셨네요</p>
+          <h1 class="title">선생님 비밀번호를 정해 주세요</h1>
+          <p class="lead">학생들이 선생님 화면을 열지 못하게 막는 비밀번호예요. 4자리 이상으로 정해 주세요.</p>
+          <div class="field"><label for="pwNew1">비밀번호</label><input id="pwNew1" class="input" type="password" inputmode="numeric" autocomplete="new-password"></div>
+          <div class="field"><label for="pwNew2">한 번 더</label><input id="pwNew2" class="input" type="password" inputmode="numeric" autocomplete="new-password"></div>
+          <p class="err" id="pwErr"></p>
+          <button class="btn primary block" type="button" id="setPwBtn">정하고 시작하기</button>
+        </section>`;
+        const go = async () => {
+          const a = $("pwNew1").value.trim(), b = $("pwNew2").value.trim();
+          if (a.length < 4) return $("pwErr").textContent = "4자리 이상으로 정해 주세요.";
+          if (a !== b) return $("pwErr").textContent = "두 번 적은 비밀번호가 달라요.";
+          const r = await api.setFirstPw(a); if (!r.ok) return $("pwErr").textContent = errText(r.error);
+          const d = await api.load(a); T.pw = a; T.data = prep(d); T.groups = cleanGroups(setting("groups", null));
+          try { sessionStorage.setItem("tamheom-pw", a); } catch(e) {}
+          renderTeacher();
+        };
+        $("setPwBtn").onclick = go;
+        $("pwNew2").onkeydown = e => { if (e.key === "Enter") go(); };
+        setTimeout(() => $("pwNew1") && $("pwNew1").focus(), 30);
+        return;
+      }
       if (!T.pw || !T.data) {
         $("shell").classList.remove("wide");
         root.innerHTML = `<section class="ticket">
@@ -523,8 +556,13 @@
               <textarea id="pasteBox" class="input" placeholder="김하늘 여&#10;박준 남"></textarea>
               <button class="btn sm ghost" type="button" id="addMany">한꺼번에 추가</button></div>
             <p class="err" id="addErr"></p>
-            ${REMOTE ? "" : `<p class="hint">체험 모드 전용: <button class="link" type="button" id="sampleBtn">샘플 학생 31명(여 17·남 14)으로 연습하기</button></p>`}
+            ${REMOTE ? "" : `<p class="hint">연습용: <button class="link" type="button" id="sampleBtn">샘플 학생 31명(여 17·남 14) 넣어 보기</button></p>`}
           </section>
+          ${REMOTE ? "" : `<section class="panel">
+            <h2>새로 시작하기</h2>
+            <p class="hint">명단·결과·모둠을 모두 지우고 처음부터 시작해요. 비밀번호는 그대로예요. 연습한 뒤나 다른 반에서 쓸 때 눌러 주세요.</p>
+            <button class="btn danger sm" type="button" id="wipeBtn">모든 기록 지우기</button>
+          </section>`}
           <section class="panel">
             <h2>비밀번호 바꾸기</h2>
             <div class="row"><input id="newPw" class="input" style="flex:1;min-width:120px" type="password" inputmode="numeric" placeholder="새 비밀번호 (4자리 이상)" autocomplete="new-password">
@@ -587,6 +625,11 @@
         $("newPw").value = ""; $("pwMsg").innerHTML = `<span class="ok">바꿨어요. 다음부터 새 비밀번호로 열어 주세요.</span>`;
       };
       if ($("sampleBtn")) $("sampleBtn").onclick = addSample;
+      if ($("wipeBtn")) $("wipeBtn").onclick = async () => {
+        if (!confirm("명단·결과·모둠을 모두 지울까요? 되돌릴 수 없어요.")) return;
+        const r = await call(api.wipe(T.pw)); if (!r || !r.ok) return;
+        T.groups = null; T.sel = null; await reload(); renderRoster();
+      };
     }
 
     async function addSample(){
@@ -977,6 +1020,7 @@
     }, 15000);
 
     $("modebar").hidden = REMOTE;
+    if (CFG.sharePage) $("modebar").innerHTML = "📌 기록은 <b>이 기기(이 브라우저)에만</b> 저장돼요. 교실 컴퓨터나 태블릿 한 대로 학생들이 차례대로 해 주세요. 다른 기기에서는 보이지 않아요.";
     S.order = QS.map(() => shuffle(KEYS));
     renderStudent(); loadRoster();
   })();

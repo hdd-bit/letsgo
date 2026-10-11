@@ -162,7 +162,7 @@
     .bigcard li small{font-size:14px;color:var(--muted);align-self:center}
     .bigcard ul{margin:0;padding:0}
 
-    @media(max-width:860px){.desk{grid-template-columns:1fr}}
+    @media(max-width:860px){.desk{grid-template-columns:1fr}.rosterdesk>.stack:last-child{order:-1}}
     @media(max-width:520px){.bar{align-items:center;flex-wrap:wrap}.brand{white-space:nowrap}.tabs button{padding:6px 10px}.ticket{padding:22px 18px}.perf{margin:20px -18px}}
     @media print{
       body *{visibility:hidden}
@@ -188,7 +188,7 @@
       <p id="modebar" class="modebar" hidden>체험 모드예요. 아직 Supabase가 연결되지 않아서 <b>이 기기에만</b> 저장돼요. 학생들이 각자 기기로 하려면 README의 연결 방법을 따라 주세요.</p>
       <main id="studentView" aria-live="polite"></main>
       <main id="teacherView" hidden></main>
-      <p class="hint" style="text-align:center;margin-top:24px;opacity:.6">버전 2026-10-11 ⑧</p>
+      <p class="hint" style="text-align:center;margin-top:24px;opacity:.6">버전 2026-10-11 ⑨</p>
     </div>
   </div>
   <dialog id="editDlg" aria-labelledby="editTitle"></dialog>
@@ -569,11 +569,17 @@
     /* ---------- ① 학생 명단 ---------- */
     function typeName(t){ return t ? TYPES[t].name : "—"; }
     function renderRoster(){
+      const keepIds = ["addName", "addGender", "pasteBox", "newPw"], kept = {};
+      keepIds.forEach(id => { const el = $(id); if (el) kept[id] = el.value; });
+      renderRosterInner();
+      keepIds.forEach(id => { const el = $(id); if (el && kept[id] != null) el.value = kept[id]; });
+    }
+    function renderRosterInner(){
       const all = students(), map = sById();
       const done = all.filter(s => s.submitted_at).length;
       const tc = {A:0,B:0,C:0,D:0}; all.forEach(s => s.type && tc[s.type]++);
       const rows = all.filter(s => T.filter === "all" || s.gender === T.filter);
-      $("tbody").innerHTML = `<div class="desk">
+      $("tbody").innerHTML = `<div class="desk rosterdesk">
         <div class="stack">
           <section class="panel">
             <h2>현황</h2>
@@ -631,10 +637,10 @@
       $("tbody").querySelectorAll("tbody tr").forEach(tr => tr.onclick = () => openEdit(tr.dataset.id));
       $("refreshBtn").onclick = async () => { if (await reload()) renderRoster(); };
       $("addOne").onclick = async () => {
-        const name = $("addName").value.trim(); if (!name) return $("addName").focus();
+        const name = normName($("addName").value); if (!name) return $("addName").focus();
         const r = await call(api.saveStudent(T.pw, {name, gender:$("addGender").value})); if (!r) return;
         if (!r.ok) return $("addErr").textContent = errText(r.error);
-        await reload(); renderRoster(); $("addName").focus();
+        $("addName").value = ""; await reload(); renderRoster(); $("addName").focus();
       };
       $("addName").onkeydown = e => { if (e.key === "Enter") $("addOne").click(); };
       $("addMany").onclick = async () => {
@@ -650,7 +656,7 @@
         if (!rows.length) return $("addErr").textContent = "\"김하늘 여\"처럼 한 줄에 이름과 성별을 적어 주세요.";
         const r = await call(api.addMany(T.pw, rows)); if (!r) return;
         if (!r.ok) return $("addErr").textContent = errText(r.error);
-        await reload(); renderRoster();
+        $("pasteBox").value = ""; await reload(); renderRoster();
         const skipped = rows.length - r.added;
         $("addErr").innerHTML = `<span class="ok">${r.added}명 추가했어요.</span>` + (skipped ? ` 이미 있는 이름 ${skipped}명은 건너뛰었어요.` : "") + (badLines.length ? ` 읽지 못한 줄: ${esc(badLines.join(" / "))}` : "");
       };
@@ -726,7 +732,7 @@
       $("eClose").onclick = () => dlg.close();
       $("eSave").onclick = async () => {
         keep();
-        const r = await call(api.saveStudent(T.pw, {id:E.id, name:E.name.trim(), gender:E.gender, type:E.type, wishes:E.wishes})); if (!r) return;
+        const r = await call(api.saveStudent(T.pw, {id:E.id, name:normName(E.name), gender:E.gender, type:E.type, wishes:E.wishes})); if (!r) return;
         if (!r.ok) return renderEdit(errText(r.error));
         dlg.close(); await reload(); renderTeacher();
       };
@@ -739,7 +745,7 @@
       if ($("eReset")) $("eReset").onclick = async () => {
         if (!confirm(`${E.name} 학생의 유형과 희망 친구를 지우고, 테스트를 다시 할 수 있게 할까요?`)) return;
         keep();
-        const r = await call(api.saveStudent(T.pw, {id:E.id, name:E.name.trim(), gender:E.gender, reset:true})); if (!r) return;
+        const r = await call(api.saveStudent(T.pw, {id:E.id, name:normName(E.name), gender:E.gender, reset:true})); if (!r) return;
         if (!r.ok) return renderEdit(errText(r.error));
         dlg.close(); await reload(); renderTeacher();
       };

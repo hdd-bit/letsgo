@@ -180,7 +180,7 @@
       <p id="modebar" class="modebar" hidden>체험 모드예요. 아직 Supabase가 연결되지 않아서 <b>이 기기에만</b> 저장돼요. 학생들이 각자 기기로 하려면 README의 연결 방법을 따라 주세요.</p>
       <main id="studentView" aria-live="polite"></main>
       <main id="teacherView" hidden></main>
-      <p class="hint" style="text-align:center;margin-top:24px;opacity:.6">버전 2026-10-10 ③</p>
+      <p class="hint" style="text-align:center;margin-top:24px;opacity:.6">버전 2026-10-11 ⑤</p>
     </div>
   </div>
   <dialog id="editDlg" aria-labelledby="editTitle"></dialog>
@@ -210,7 +210,7 @@
       ["꼭 사고 싶은 기념품은?",["스릴 인증 놀이기구 사진","방문 기록 노트나 스탬프","귀여운 머리띠나 인형","친구들과 맞춘 우정템"]],
       ["집에 오는 버스 안에서 나는?",["오늘 탄 것 중 최고를 꼽는다","오늘 몇 개 탔는지 센다","창밖을 보며 하루를 떠올린다","웃긴 일을 계속 이야기한다"]]
     ];
-    const KEYS = ["A","B","C","D"], GENDERS = ["여","남"], MAX_WISH = 3, MAX_GROUP = 5;
+    const KEYS = ["A","B","C","D"], GENDERS = ["여","남"], MAX_WISH = 2, MAX_GROUP = 5;
 
     /* ================= 도구 ================= */
     const $ = id => document.getElementById(id);
@@ -243,7 +243,12 @@
         addMany: (pw, rows) => rpc("tm_add_many", {p_pw:pw, p_rows:rows}),
         remove: (pw, id) => rpc("tm_delete_student", {p_pw:pw, p_id:id}),
         setSetting: (pw, key, value) => rpc("tm_set_setting", {p_pw:pw, p_key:key, p_value:value}),
-        changePw: (pw, next) => rpc("tm_change_pw", {p_pw:pw, p_new:next})
+        changePw: (pw, next) => rpc("tm_change_pw", {p_pw:pw, p_new:next}),
+        async wipe(pw, ids){
+          for (const id of ids) { const r = await rpc("tm_delete_student", {p_pw:pw, p_id:id}); if (!r.ok) return r; }
+          for (const key of ["groups", "constraints"]) { const r = await rpc("tm_set_setting", {p_pw:pw, p_key:key, p_value:null}); if (!r.ok) return r; }
+          return {ok:true};
+        }
       };
     }
 
@@ -301,13 +306,13 @@
     }
 
     /* ================= 학생 화면 ================= */
-    const S = {step:"start", name:"", gender:"", roster:[], q:0, answers:[], order:[], wishNames:["","",""], type:null, msg:""};
+    const S = {step:"start", name:"", gender:"", roster:[], q:0, answers:[], order:[], wishNames:["",""], type:null, msg:""};
 
     async function loadRoster(){
       try { S.roster = await api.roster(); } catch(e) { /* 친구 이름 추천용이라 실패해도 진행 */ }
     }
     function resetStudent(){
-      Object.assign(S, {step:"start", name:"", gender:"", q:0, answers:[], order:QS.map(() => shuffle(KEYS)), wishNames:["","",""], type:null, msg:""});
+      Object.assign(S, {step:"start", name:"", gender:"", q:0, answers:[], order:QS.map(() => shuffle(KEYS)), wishNames:["",""], type:null, msg:""});
       renderStudent(); loadRoster();
     }
     function computeType(answers){
@@ -365,15 +370,16 @@
           <div class="punches">${QS.map(() => `<span class="on"></span>`).join("")}<span class="${S.wishNames.some(Boolean)?"on":""}"></span></div>
           <p class="qno">마지막 단계</p>
           <h2 class="question">같이 다니고 싶은 친구를 적어 주세요</h2>
-          <p class="lead">같은 성별 친구를 1명부터 ${MAX_WISH}명까지 적을 수 있어요. <b>선생님만 볼 수 있고 친구들은 몰라요.</b> 적은 친구 중 적어도 1명과는 같은 모둠이 되도록 최대한 맞춰 볼게요.</p>
-          ${[0,1,2].map(k => `<div class="field"><label for="w${k}">친구 ${k+1}${k ? " (적지 않아도 돼요)" : ""}</label><input id="w${k}" class="input" maxlength="12" autocomplete="off" list="friendList" placeholder="성까지 정확하게" value="${esc(S.wishNames[k])}"></div>`).join("")}
+          <p class="lead">같은 성별 친구를 ${MAX_WISH}명까지 적을 수 있어요. <b>선생님만 볼 수 있고 친구들은 몰라요.</b></p>
+          <div class="rrole" style="margin-top:12px;line-height:1.7">🤝 모둠은 선생님을 믿고 맡겨 주세요.<br>🌱 새로운 친구에게도 마음을 열어 봐요.<br>🎒 누구와 함께여도 무리 없이 체험 활동을 할 수 있어야 해요.</div>
+          ${[0,1].map(k => `<div class="field"><label for="w${k}">친구 ${k+1}${k ? " (적지 않아도 돼요)" : ""}</label><input id="w${k}" class="input" maxlength="12" autocomplete="off" list="friendList" placeholder="성까지 정확하게" value="${esc(S.wishNames[k])}"></div>`).join("")}
           <datalist id="friendList">${known.map(n => `<option value="${esc(n)}"></option>`).join("")}</datalist>
           <p class="err" id="fErr">${esc(S.msg)}</p>
           <div class="navrow"><button class="btn ghost sm" id="prev" type="button">이전</button><button class="btn primary" id="submit" type="button">제출하고 결과 보기</button></div>
           <p class="or">또는</p>
           <button class="btn anyone block" type="button" id="anyone">🙌 누구와 같은 모둠이어도 괜찮아요</button>
         </section>`;
-        const read = () => { S.wishNames = [0,1,2].map(k => $("w"+k).value); };
+        const read = () => { S.wishNames = [0,1].map(k => $("w"+k).value); };
         $("prev").onclick = () => { read(); S.msg = ""; S.step = "q"; S.q = QS.length-1; renderStudent(); };
         $("submit").onclick = () => {
           read();
@@ -559,11 +565,12 @@
             <p class="err" id="addErr"></p>
             ${REMOTE ? "" : `<p class="hint">연습용: <button class="link" type="button" id="sampleBtn">샘플 학생 31명(여 17·남 14) 넣어 보기</button></p>`}
           </section>
-          ${REMOTE ? "" : `<section class="panel">
-            <h2>새로 시작하기</h2>
-            <p class="hint">명단·결과·모둠을 모두 지우고 처음부터 시작해요. 비밀번호는 그대로예요. 연습한 뒤나 다른 반에서 쓸 때 눌러 주세요.</p>
-            <button class="btn danger sm" type="button" id="wipeBtn">모든 기록 지우기</button>
-          </section>`}
+          <section class="panel">
+            <h2>전체 삭제</h2>
+            <p class="hint">학생 명단·결과·모둠을 한 번에 모두 지워요. 비밀번호는 그대로예요. 테스트해 본 뒤나 새로 시작할 때 눌러 주세요.</p>
+            <button class="btn danger sm" type="button" id="wipeBtn">🗑 전체 삭제</button>
+            <p class="hint" id="wipeMsg"></p>
+          </section>
           <section class="panel">
             <h2>비밀번호 바꾸기</h2>
             <div class="row"><input id="newPw" class="input" style="flex:1;min-width:120px" type="password" inputmode="numeric" placeholder="새 비밀번호 (4자리 이상)" autocomplete="new-password">
@@ -627,8 +634,10 @@
       };
       if ($("sampleBtn")) $("sampleBtn").onclick = addSample;
       if ($("wipeBtn")) $("wipeBtn").onclick = async () => {
-        if (!confirm("명단·결과·모둠을 모두 지울까요? 되돌릴 수 없어요.")) return;
-        const r = await call(api.wipe(T.pw)); if (!r || !r.ok) return;
+        if (!confirm(`학생 ${students().length}명의 명단·결과·모둠을 모두 지울까요? 되돌릴 수 없어요.`)) return;
+        $("wipeBtn").disabled = true; $("wipeMsg").textContent = "지우는 중…";
+        const r = await call(api.wipe(T.pw, students().map(s => s.id)));
+        if (!r || !r.ok) { if ($("wipeBtn")) { $("wipeBtn").disabled = false; $("wipeMsg").textContent = "다 지우지 못했어요. 다시 눌러 주세요."; } return; }
         T.groups = null; T.sel = null; await reload(); renderRoster();
       };
     }

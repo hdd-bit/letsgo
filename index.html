@@ -188,7 +188,7 @@
       <p id="modebar" class="modebar" hidden>체험 모드예요. 아직 Supabase가 연결되지 않아서 <b>이 기기에만</b> 저장돼요. 학생들이 각자 기기로 하려면 README의 연결 방법을 따라 주세요.</p>
       <main id="studentView" aria-live="polite"></main>
       <main id="teacherView" hidden></main>
-      <p class="hint" style="text-align:center;margin-top:24px;opacity:.6">버전 2026-10-11 ⑦</p>
+      <p class="hint" style="text-align:center;margin-top:24px;opacity:.6">버전 2026-10-11 ⑧</p>
     </div>
   </div>
   <dialog id="editDlg" aria-labelledby="editTitle"></dialog>
@@ -323,6 +323,7 @@
         },
         async setSetting(pw, key, value){ sync(); const e = bad(pw); if (e) return e; mem.settings[key] = value; save(); return {ok:true}; },
         needsPw(){ sync(); return !mem.pw; },
+        reset(){ mem = fresh(); if (!mem.pw) mem.pw = null; save(); },
         async setFirstPw(next){ sync(); if (mem.pw) return {ok:false, error:"bad"}; if (!next || next.length < 4) return {ok:false, error:"short"}; mem.pw = next; save(); return {ok:true}; },
         async wipe(pw){ sync(); const e = bad(pw); if (e) return e; mem.students = []; mem.settings = {}; save(); return {ok:true}; },
         async changePw(pw, next){ sync(); const e = bad(pw); if (e) return e; if (!next || next.length < 4) return {ok:false, error:"short"}; mem.pw = next; save(); return {ok:true}; }
@@ -454,8 +455,9 @@
     }
 
     /* ================= 선생님 화면 ================= */
+    const PW_KEY = CFG.sharePage ? "tamheom-share-pw" : "tamheom-pw";
     const T = {pw:null, data:null, tab:"roster", filter:"all", sel:null, groups:null, saveState:"", edit:null};
-    try { T.pw = sessionStorage.getItem("tamheom-pw"); } catch(e) {}
+    try { T.pw = sessionStorage.getItem(PW_KEY); } catch(e) {}
     const students = () => (T.data && T.data.students) || [];
     const sById = () => new Map(students().map(s => [s.id, s]));
     const setting = (k, d) => (T.data && T.data.settings && T.data.settings[k] != null) ? T.data.settings[k] : d;
@@ -474,11 +476,11 @@
       return r;
     }
     function errText(code){
-      return ({bad:"비밀번호가 맞지 않아요.", locked:"비밀번호를 여러 번 틀려서 10분 동안 잠겼어요. 잠시 뒤 다시 해 주세요.", dup:"같은 성별에 같은 이름이 이미 있어요. (예: 김민준B 처럼 구분해 주세요)", name:"이름을 적어 주세요.", invalid:"입력한 값을 확인해 주세요.", notfound:"학생을 찾을 수 없어요. 새로고침해 주세요."})[code] || "저장하지 못했어요. 다시 시도해 주세요.";
+      return ({bad:"비밀번호가 맞지 않아요.", locked:"비밀번호를 여러 번 틀려서 10분 동안 잠겼어요. 잠시 뒤 다시 해 주세요.", dup:"같은 성별에 같은 이름이 이미 있어요. (예: 김민준B 처럼 구분해 주세요)", name:"이름을 적어 주세요.", invalid:"입력한 값을 확인해 주세요.", notfound:"학생을 찾을 수 없어요. 새로고침해 주세요.", short:"4자리 이상으로 적어 주세요."})[code] || "저장하지 못했어요. 다시 시도해 주세요.";
     }
     function lockTeacher(msg){
       T.pw = null; T.data = null; T.groups = null; T.sel = null;
-      try { sessionStorage.removeItem("tamheom-pw"); } catch(e) {}
+      try { sessionStorage.removeItem(PW_KEY); } catch(e) {}
       renderTeacher(msg);
     }
     async function reload(){
@@ -512,7 +514,7 @@
           if (a !== b) return $("pwErr").textContent = "두 번 적은 비밀번호가 달라요.";
           const r = await api.setFirstPw(a); if (!r.ok) return $("pwErr").textContent = errText(r.error);
           const d = await api.load(a); T.pw = a; T.data = prep(d); T.groups = cleanGroups(setting("groups", null));
-          try { sessionStorage.setItem("tamheom-pw", a); } catch(e) {}
+          try { sessionStorage.setItem(PW_KEY, a); } catch(e) {}
           renderTeacher();
         };
         $("setPwBtn").onclick = go;
@@ -528,15 +530,20 @@
           <div class="field"><label for="pwInput">비밀번호</label><input id="pwInput" class="input" type="password" inputmode="numeric" autocomplete="off"></div>
           <p class="err" id="pwErr">${esc(lockMsg || "")}</p>
           <button class="btn primary block" type="button" id="unlockBtn">열기</button>
+          ${!REMOTE && api.reset ? `<p class="hint" style="margin-top:16px;text-align:center"><button class="link" type="button" id="forgotBtn">비밀번호를 잊었어요 (이 기기 기록을 지우고 새로 정하기)</button></p>` : ""}
         </section>`;
         const go = async () => {
           const pw = $("pwInput").value.trim(); if (!pw) return $("pwInput").focus();
           $("unlockBtn").disabled = true; $("pwErr").textContent = "";
           let r; try { r = await api.load(pw); } catch(e) { r = {ok:false, error:"network"}; }
-          if (r.ok) { T.pw = pw; T.data = prep(r); T.groups = cleanGroups(setting("groups", null)); try { sessionStorage.setItem("tamheom-pw", pw); } catch(e) {} renderTeacher(); }
+          if (r.ok) { T.pw = pw; T.data = prep(r); T.groups = cleanGroups(setting("groups", null)); try { sessionStorage.setItem(PW_KEY, pw); } catch(e) {} renderTeacher(); }
           else { $("unlockBtn").disabled = false; $("pwErr").textContent = r.error === "network" ? "연결하지 못했어요. 인터넷과 config.js 설정을 확인해 주세요." : errText(r.error); $("pwInput").select(); }
         };
         $("unlockBtn").onclick = go;
+        if ($("forgotBtn")) $("forgotBtn").onclick = () => {
+          if (!confirm("이 기기에 저장된 학생 명단·결과·모둠과 비밀번호를 모두 지우고, 비밀번호를 새로 정할까요?\n(되돌릴 수 없어요)")) return;
+          api.reset(); renderTeacher();
+        };
         $("pwInput").onkeydown = e => { if (e.key === "Enter") go(); };
         setTimeout(() => $("pwInput") && $("pwInput").focus(), 30);
         return;
@@ -653,7 +660,7 @@
         if (!confirm(`비밀번호를 '${next}'(으)로 바꿀까요?`)) return;
         const r = await call(api.changePw(T.pw, next)); if (!r) return;
         if (!r.ok) return $("pwMsg").textContent = errText(r.error);
-        T.pw = next; try { sessionStorage.setItem("tamheom-pw", next); } catch(e) {}
+        T.pw = next; try { sessionStorage.setItem(PW_KEY, next); } catch(e) {}
         $("newPw").value = ""; $("pwMsg").innerHTML = `<span class="ok">바꿨어요. 다음부터 새 비밀번호로 열어 주세요.</span>`;
       };
       if ($("sampleBtn")) $("sampleBtn").onclick = addSample;

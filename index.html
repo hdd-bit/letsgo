@@ -141,6 +141,13 @@
 
     dialog{border:0;border-radius:18px;padding:0;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 40px);color:var(--ink);background:var(--surface)}
     dialog::backdrop{background:rgba(20,33,61,.45)}
+    .guide h2{font-size:26px}
+    .steps{margin:0;padding:0;list-style:none;counter-reset:st;display:grid;gap:10px}
+    .steps li{counter-increment:st;display:grid;grid-template-columns:32px 1fr;gap:2px 10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+    .steps li::before{content:counter(st);grid-row:span 2;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--brand);color:#fff;font-weight:700}
+    .steps li b{font-size:15px}.steps li span{font-size:14px;line-height:1.6;color:var(--ink)}
+    .steps li.lockstep{border:2px solid var(--a);background:#fff1ee}.steps li.lockstep::before{background:var(--a)}.steps li.lockstep>b{color:var(--a)}
+    #lockBtn{border-color:var(--a);color:var(--a)}
     .dlg{padding:22px;display:grid;gap:12px}
     .dlg .field{margin-top:0}
 
@@ -156,7 +163,7 @@
     .bigcard ul{margin:0;padding:0}
 
     @media(max-width:860px){.desk{grid-template-columns:1fr}}
-    @media(max-width:520px){.bar{align-items:flex-start}.tabs button{padding:6px 10px}.ticket{padding:22px 18px}.perf{margin:20px -18px}}
+    @media(max-width:520px){.bar{align-items:center;flex-wrap:wrap}.brand{white-space:nowrap}.tabs button{padding:6px 10px}.ticket{padding:22px 18px}.perf{margin:20px -18px}}
     @media print{
       body *{visibility:hidden}
       #big,#big *{visibility:visible}
@@ -172,18 +179,35 @@
     <div id="shell" class="app-wrap">
       <header class="bar">
         <div class="brand"><span class="dots" aria-hidden="true"></span><span>탐험대 모둠 편성</span></div>
+        <div class="row" style="gap:8px"><button type="button" class="btn ghost sm" id="guideBtn" hidden>📖 사용 방법</button>
         <nav class="tabs" aria-label="화면 선택">
           <button type="button" id="tabStudent" aria-pressed="true">학생</button>
           <button type="button" id="tabTeacher" aria-pressed="false">선생님</button>
-        </nav>
+        </nav></div>
       </header>
       <p id="modebar" class="modebar" hidden>체험 모드예요. 아직 Supabase가 연결되지 않아서 <b>이 기기에만</b> 저장돼요. 학생들이 각자 기기로 하려면 README의 연결 방법을 따라 주세요.</p>
       <main id="studentView" aria-live="polite"></main>
       <main id="teacherView" hidden></main>
-      <p class="hint" style="text-align:center;margin-top:24px;opacity:.6">버전 2026-10-11 ⑥</p>
+      <p class="hint" style="text-align:center;margin-top:24px;opacity:.6">버전 2026-10-11 ⑦</p>
     </div>
   </div>
   <dialog id="editDlg" aria-labelledby="editTitle"></dialog>
+  <dialog id="guideDlg" aria-labelledby="guideTitle">
+    <div class="dlg guide">
+      <p class="eyebrow">선생님, 처음 오셨나요?</p>
+      <h2 id="guideTitle" tabindex="-1" autofocus style="outline:none">이렇게 사용해 주세요</h2>
+      <ol class="steps">
+        <li><b>비밀번호 정하기</b><span>오른쪽 위 <b>[선생님]</b> 탭을 누르고, 선생님만 아는 비밀번호(4자리 이상)를 정해요.</span></li>
+        <li class="lockstep"><b>🔒 반드시 [잠그기] 누르기</b><span>선생님 화면 오른쪽 위에 있는 <b>[🔒 잠그기]</b> 버튼을 꼭 누른 다음 학생에게 기기를 넘겨 주세요.<br>잠그지 않으면 학생이 [선생님] 탭을 눌렀을 때 <b>비밀번호 없이</b> 친구들의 결과와 '같이 다니고 싶은 친구'가 모두 보여요.<br>선생님 화면을 볼 때마다, 다 보고 나면 언제나 [잠그기]!</span></li>
+        <li><b>학생들이 차례대로 하기</b><span>[학생] 탭에서 이름·성별 → 질문 10개 → 같이 다니고 싶은 친구(최대 2명) → 결과 화면의 <b>[제출하기]</b>를 누르면 다음 학생 차례예요.<br>기록은 <b>이 기기에만</b> 저장되니 교실 컴퓨터나 태블릿 한 대로 돌아가며 해 주세요.</span></li>
+        <li><b>모둠 짜기</b><span>모두 끝나면 [선생님] → 비밀번호 → <b>② 모둠 짜기</b>. 모둠 인원과 '꼭 같은/다른 모둠' 조건을 확인하고 [모둠 짜기]를 눌러요. 학생 이름을 눌러 자리를 바꿀 수도 있어요.</span></li>
+        <li><b>결과 남기기</b><span>[크게 보기]로 화면에 띄우거나 [인쇄]·[텍스트 복사]로 꼭 남겨 두세요. 브라우저 기록을 지우면 결과도 사라져요.</span></li>
+        <li><b>다 쓰면 전체 삭제</b><span>① 학생 명단의 <b>[🗑 전체 삭제]</b>로 지우면 다음 반에서 새로 쓸 수 있어요.</span></li>
+      </ol>
+      <p class="hint">이 안내는 위쪽 <b>[📖 사용 방법]</b>을 누르면 언제든 다시 볼 수 있어요.</p>
+      <button class="btn primary block" type="button" id="guideOk" style="margin-top:4px">확인했어요, 시작할게요</button>
+    </div>
+  </dialog>
   <div id="big" class="big" hidden></div>
 
   <script src="config.js"></script>
@@ -523,7 +547,7 @@
             <button type="button" data-tab="roster" aria-pressed="${T.tab==="roster"}">① 학생 명단</button>
             <button type="button" data-tab="groups" aria-pressed="${T.tab==="groups"}">② 모둠 짜기</button>
           </nav>
-          <div class="row"><span class="hint" id="saveState">${esc(T.saveState)}</span><button class="btn ghost sm" type="button" id="lockBtn">잠그기</button></div>
+          <div class="row"><span class="hint" id="saveState">${esc(T.saveState)}</span><button class="btn ghost sm" type="button" id="lockBtn">🔒 잠그기</button></div>
         </div>
         <div id="tbody"></div>`;
       root.querySelectorAll("[data-tab]").forEach(b => b.onclick = async () => {
@@ -1030,6 +1054,15 @@
     }, 15000);
 
     $("modebar").hidden = REMOTE;
+    if (CFG.sharePage) {
+      const g = $("guideDlg"), seenKey = "tamheom-guide-seen";
+      $("guideBtn").hidden = false;
+      const openGuide = () => { g.showModal(); g.scrollTop = 0; $("guideTitle").focus(); };
+      $("guideBtn").onclick = openGuide;
+      $("guideOk").onclick = () => { try { localStorage.setItem(seenKey, "1"); } catch(e) {} g.close(); };
+      let seen = false; try { seen = localStorage.getItem(seenKey) === "1"; } catch(e) {}
+      if (!seen) openGuide();
+    }
     if (CFG.sharePage) $("modebar").innerHTML = "📌 기록은 <b>이 기기(이 브라우저)에만</b> 저장돼요. 교실 컴퓨터나 태블릿 한 대로 학생들이 차례대로 해 주세요. 다른 기기에서는 보이지 않아요.";
     S.order = QS.map(() => shuffle(KEYS));
     renderStudent(); loadRoster();

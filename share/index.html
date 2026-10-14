@@ -137,6 +137,8 @@
     .chip small.tA{color:var(--a)}.chip small.tB{color:var(--b)}.chip small.tC{color:var(--c)}.chip small.tD{color:var(--d)}.chip small.t0{color:var(--muted);font-weight:500}
     .chip em{grid-column:1/-1;font-style:normal;font-size:11px;font-weight:700;color:var(--warn)}
     .chip.unmet{border-color:var(--warnLine)}
+    .mix{font-family:"Noto Sans KR",sans-serif;font-size:12px;font-weight:700;color:var(--brand);margin-left:4px}
+    .gmark{font-style:normal;font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 4px;margin-left:2px}
     .gwarn{font-size:12px;font-weight:700;color:var(--warn);line-height:1.45}
 
     dialog{border:0;border-radius:18px;padding:0;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 40px);color:var(--ink);background:var(--surface)}
@@ -188,7 +190,7 @@
       <p id="modebar" class="modebar" hidden>체험 모드예요. 아직 Supabase가 연결되지 않아서 <b>이 기기에만</b> 저장돼요. 학생들이 각자 기기로 하려면 README의 연결 방법을 따라 주세요.</p>
       <main id="studentView" aria-live="polite"></main>
       <main id="teacherView" hidden></main>
-      <p class="hint" style="text-align:center;margin-top:24px;opacity:.6">버전 2026-10-11 ⑨</p>
+      <p class="hint" style="text-align:center;margin-top:24px;opacity:.6">버전 2026-10-14 ⑩</p>
     </div>
   </div>
   <dialog id="editDlg" aria-labelledby="editTitle"></dialog>
@@ -200,7 +202,7 @@
         <li><b>비밀번호 정하기</b><span>오른쪽 위 <b>[선생님]</b> 탭을 누르고, 선생님만 아는 비밀번호(4자리 이상)를 정해요.</span></li>
         <li class="lockstep"><b>🔒 반드시 [잠그기] 누르기</b><span>선생님 화면 오른쪽 위에 있는 <b>[🔒 잠그기]</b> 버튼을 꼭 누른 다음 학생에게 기기를 넘겨 주세요.<br>잠그지 않으면 학생이 [선생님] 탭을 눌렀을 때 <b>비밀번호 없이</b> 친구들의 결과와 '같이 다니고 싶은 친구'가 모두 보여요.<br>선생님 화면을 볼 때마다, 다 보고 나면 언제나 [잠그기]!</span></li>
         <li><b>학생들이 차례대로 하기</b><span>[학생] 탭에서 이름·성별 → 질문 10개 → 같이 다니고 싶은 친구(최대 2명) → 결과 화면의 <b>[제출하기]</b>를 누르면 다음 학생 차례예요.<br>기록은 <b>이 기기에만</b> 저장되니 교실 컴퓨터나 태블릿 한 대로 돌아가며 해 주세요.</span></li>
-        <li><b>모둠 짜기</b><span>모두 끝나면 [선생님] → 비밀번호 → <b>② 모둠 짜기</b>. 모둠 인원과 '꼭 같은/다른 모둠' 조건을 확인하고 [모둠 짜기]를 눌러요. 학생 이름을 눌러 자리를 바꿀 수도 있어요.</span></li>
+        <li><b>모둠 짜기</b><span>모두 끝나면 [선생님] → 비밀번호 → <b>② 모둠 짜기</b>. <b>남녀 따로</b> 또는 <b>남녀 섞기</b>(모둠마다 남녀 수를 고르게)를 고르고, 모둠 인원과 '꼭 같은/다른 모둠' 조건을 확인한 뒤 [모둠 짜기]를 눌러요. 학생 이름을 눌러 자리를 바꿀 수도 있어요.</span></li>
         <li><b>결과 남기기</b><span>[크게 보기]로 화면에 띄우거나 [인쇄]·[텍스트 복사]로 꼭 남겨 두세요. 브라우저 기록을 지우면 결과도 사라져요.</span></li>
         <li><b>다 쓰면 전체 삭제</b><span>① 학생 명단의 <b>[🗑 전체 삭제]</b>로 지우면 다음 반에서 새로 쓸 수 있어요.</span></li>
       </ol>
@@ -324,6 +326,7 @@
         async setSetting(pw, key, value){ sync(); const e = bad(pw); if (e) return e; mem.settings[key] = value; save(); return {ok:true}; },
         needsPw(){ sync(); return !mem.pw; },
         reset(){ mem = fresh(); if (!mem.pw) mem.pw = null; save(); },
+        publicMode(){ sync(); return (mem.settings && mem.settings.mode) || "split"; },
         async setFirstPw(next){ sync(); if (mem.pw) return {ok:false, error:"bad"}; if (!next || next.length < 4) return {ok:false, error:"short"}; mem.pw = next; save(); return {ok:true}; },
         async wipe(pw){ sync(); const e = bad(pw); if (e) return e; mem.students = []; mem.settings = {}; save(); return {ok:true}; },
         async changePw(pw, next){ sync(); const e = bad(pw); if (e) return e; if (!next || next.length < 4) return {ok:false, error:"short"}; mem.pw = next; save(); return {ok:true}; }
@@ -331,10 +334,11 @@
     }
 
     /* ================= 학생 화면 ================= */
-    const S = {step:"start", name:"", gender:"", roster:[], q:0, answers:[], order:[], wishNames:["",""], type:null, msg:""};
+    const S = {step:"start", name:"", gender:"", roster:[], mixed:false, q:0, answers:[], order:[], wishNames:["",""], type:null, msg:""};
 
     async function loadRoster(){
       try { S.roster = await api.roster(); } catch(e) { /* 친구 이름 추천용이라 실패해도 진행 */ }
+      S.mixed = !!(CFG.sharePage && api.publicMode && api.publicMode() === "mixed");
     }
     function resetStudent(){
       Object.assign(S, {step:"start", name:"", gender:"", q:0, answers:[], order:QS.map(() => shuffle(KEYS)), wishNames:["",""], type:null, msg:""});
@@ -390,12 +394,12 @@
         return;
       }
       if (S.step === "friends") {
-        const known = (S.roster || []).filter(s => s.gender === S.gender && s.name !== S.name).map(s => s.name).sort((a,b) => a.localeCompare(b, "ko"));
+        const known = (S.roster || []).filter(s => (S.mixed || s.gender === S.gender) && s.name !== S.name).map(s => s.name).sort((a,b) => a.localeCompare(b, "ko"));
         root.innerHTML = `<section class="ticket">
           <div class="punches">${QS.map(() => `<span class="on"></span>`).join("")}<span class="${S.wishNames.some(Boolean)?"on":""}"></span></div>
           <p class="qno">마지막 단계</p>
           <h2 class="question">같이 다니고 싶은 친구를 적어 주세요</h2>
-          <p class="lead">같은 성별 친구를 ${MAX_WISH}명까지 적을 수 있어요. <b>선생님만 볼 수 있고 친구들은 몰라요.</b></p>
+          <p class="lead">${S.mixed ? "" : "같은 성별 "}친구를 ${MAX_WISH}명까지 적을 수 있어요. <b>선생님만 볼 수 있고 친구들은 몰라요.</b></p>
           <div class="rrole" style="margin-top:12px;line-height:1.7">🤝 모둠은 선생님을 믿고 맡겨 주세요.<br>🌱 새로운 친구에게도 마음을 열어 봐요.<br>🎒 누구와 함께여도 무리 없이 체험 활동을 할 수 있어야 해요.</div>
           ${[0,1].map(k => `<div class="field"><label for="w${k}">친구 ${k+1}${k ? " (적지 않아도 돼요)" : ""}</label><input id="w${k}" class="input" maxlength="12" autocomplete="off" list="friendList" placeholder="성까지 정확하게" value="${esc(S.wishNames[k])}"></div>`).join("")}
           <datalist id="friendList">${known.map(n => `<option value="${esc(n)}"></option>`).join("")}</datalist>
@@ -464,11 +468,12 @@
 
     // 학생이 적은 친구 이름(wish_names)을 명단의 학생과 연결. 못 찾은 이름은 unmatched로 표시
     function prep(r){
-      const list = r.students || [];
+      const list = r.students || [], mixedNow = !!(CFG.sharePage && r.settings && r.settings.mode === "mixed");
       list.forEach(s => {
-        const names = s.wish_names || [], ids = new Set(s.wishes || []), unmatched = [];
+        if (!s._baseWishes) s._baseWishes = [...(s.wishes || [])]; // 다시 연결해도 결과가 같도록 원래 값 보관
+        const names = s.wish_names || [], ids = new Set(s._baseWishes), unmatched = [];
         names.forEach(n => {
-          const m = list.find(x => x.gender === s.gender && x.name === n && x.id !== s.id);
+          const m = list.find(x => x.gender === s.gender && x.name === n && x.id !== s.id) || (mixedNow ? list.find(x => x.name === n && x.id !== s.id) : null);
           if (m) ids.add(m.id); else unmatched.push(n);
         });
         s.wishes = [...ids]; s.unmatched = unmatched;
@@ -478,7 +483,8 @@
     function errText(code){
       return ({bad:"비밀번호가 맞지 않아요.", locked:"비밀번호를 여러 번 틀려서 10분 동안 잠겼어요. 잠시 뒤 다시 해 주세요.", dup:"같은 성별에 같은 이름이 이미 있어요. (예: 김민준B 처럼 구분해 주세요)", name:"이름을 적어 주세요.", invalid:"입력한 값을 확인해 주세요.", notfound:"학생을 찾을 수 없어요. 새로고침해 주세요.", short:"4자리 이상으로 적어 주세요."})[code] || "저장하지 못했어요. 다시 시도해 주세요.";
     }
-    function lockTeacher(msg){
+    async function lockTeacher(msg){
+      await flushSaves();
       T.pw = null; T.data = null; T.groups = null; T.sel = null;
       try { sessionStorage.removeItem(PW_KEY); } catch(e) {}
       renderTeacher(msg);
@@ -704,7 +710,7 @@
     }
     function renderEdit(msg){
       const E = T.edit, dlg = $("editDlg");
-      const pool = students().filter(s => s.gender === E.gender && s.id !== E.id).sort(byName);
+      const pool = students().filter(s => (isMixed() || s.gender === E.gender) && s.id !== E.id).sort(byName);
       dlg.innerHTML = `<div class="dlg">
         <h2 id="editTitle">${esc(E.name)} 고치기</h2>
         <div class="field"><label for="eName">이름</label><input id="eName" class="input" value="${esc(E.name)}" maxlength="20" autocomplete="off"></div>
@@ -797,23 +803,27 @@
       const map = sById(), tog = [], apt = [], cross = [];
       parseCons(c.together).sets.forEach(ids => { for (let i=0;i<ids.length;i++) for (let j=i+1;j<ids.length;j++) {
         const a = map.get(ids[i]), b = map.get(ids[j]);
-        if (a.gender !== b.gender) cross.push(`${a.name}·${b.name}`); else tog.push([ids[i], ids[j]]);
+        if (a.gender !== b.gender && !isMixed()) cross.push(`${a.name}·${b.name}`); else tog.push([ids[i], ids[j]]);
       }});
       parseCons(c.apart).sets.forEach(ids => { for (let i=0;i<ids.length;i++) for (let j=i+1;j<ids.length;j++) apt.push([ids[i], ids[j]]); });
       return {tog, apt, cross};
     }
 
     // 모둠 짜기: 조건 위반을 가장 크게, 희망 친구 0명을 그다음으로, 같은 유형 몰림을 가장 작게 벌점 주고 자리를 바꿔 가며 최소화
-    function solve(ids, sizes, tog, apt){
+    function solve(ids, sizes, tog, apt, balance){
       const n = ids.length, k = sizes.length; if (!n) return [];
       const map = sById(), ix = new Map(ids.map((id,i) => [id,i]));
       const W = ids.map(id => (map.get(id).wishes || []).map(w => ix.get(w)).filter(v => v !== undefined));
       const TP = ids.map(id => { const t = map.get(id).type; return t ? KEYS.indexOf(t) : -1; });
       const pairs = arr => arr.map(([a,b]) => [ix.get(a), ix.get(b)]).filter(p => p[0] !== undefined && p[1] !== undefined);
       const TG = pairs(tog), AP = pairs(apt);
-      const cnt = new Array(k*4);
+      const cnt = new Array(k*4), FEM = ids.map(id => map.get(id).gender === "여" ? 1 : 0), ratio = FEM.reduce((a,b) => a+b, 0) / n, fc = new Array(k);
       function cost(g){
         let c = 0;
+        if (balance) { // 모둠마다 여학생 수가 (모둠 인원 × 반 전체 여학생 비율)에 가깝도록
+          fc.fill(0); for (let i=0;i<n;i++) fc[g[i]] += FEM[i];
+          for (let q=0;q<k;q++) { const d = fc[q] - sizes[q]*ratio; c += 600*d*d; }
+        }
         for (const [a,b] of TG) if (g[a] !== g[b]) c += 1000;
         for (const [a,b] of AP) if (g[a] === g[b]) c += 1000;
         for (let i=0;i<n;i++) { const w = W[i]; if (!w.length) continue; let m = 0; for (const j of w) if (g[j] === g[i]) m++; c += m ? -4*m : 300; }
@@ -841,27 +851,37 @@
       return out.map(arr => arr.sort((x,y) => byName(map.get(x), map.get(y))));
     }
 
+    // 모둠 묶음: 남녀 따로면 [여, 남], 섞으면 [전체] (섞기는 공유용에서만)
+    const MIX = "전체";
+    const isMixed = () => !!CFG.sharePage && setting("mode", "split") === "mixed";
+    const BKS = () => isMixed() ? [MIX] : GENDERS;
+    const inBk = (s, g) => g === MIX || s.gender === g;
+    const bkOf = s => isMixed() ? MIX : s.gender;
+    const bkTitle = g => g === MIX ? "전체" : g + "학생";
+    const gLabel = (g, i) => g === MIX ? `${i+1}모둠` : `${g} ${i+1}모둠`;
+    const mixCount = arr => { const map = sById(); const f = arr.filter(id => map.get(id).gender === "여").length; return `여 ${f}·남 ${arr.length - f}`; };
+
     function cleanGroups(raw){
       if (!raw || typeof raw !== "object") return null;
       const out = {at:raw.at || Date.now()};
-      GENDERS.forEach(g => { out[g] = Array.isArray(raw[g]) ? raw[g].map(a => Array.isArray(a) ? a.slice() : []) : []; });
+      [...GENDERS, MIX].forEach(g => { out[g] = Array.isArray(raw[g]) ? raw[g].map(a => Array.isArray(a) ? a.slice() : []) : []; });
       return out;
     }
     function groupView(){
       // 현재 명단 기준으로 정리: 지워진 학생 빼기, 성별 바뀐 학생 빼기, 모둠 없는 학생 따로
       const map = sById(), view = {};
-      GENDERS.forEach(g => {
-        const groups = (T.groups && T.groups[g] || []).map(a => a.filter(id => map.get(id) && map.get(id).gender === g));
+      BKS().forEach(g => {
+        const groups = (T.groups && T.groups[g] || []).map(a => a.filter(id => map.get(id) && inBk(map.get(id), g)));
         const seen = new Set(); groups.forEach(a => a.forEach(id => seen.add(id)));
-        const pool = students().filter(s => s.gender === g && !seen.has(s.id)).map(s => s.id);
+        const pool = students().filter(s => inBk(s, g) && !seen.has(s.id)).map(s => s.id);
         view[g] = {groups, pool};
       });
-      if (T.groups) GENDERS.forEach(g => T.groups[g] = view[g].groups);
+      if (T.groups) BKS().forEach(g => T.groups[g] = view[g].groups);
       return view;
     }
     function evaluate(view){
       const map = sById(), {tog, apt} = consPairs(), res = {};
-      GENDERS.forEach(g => {
+      BKS().forEach(g => {
         const {groups} = view[g], where = new Map();
         groups.forEach((a,i) => a.forEach(id => where.set(id, i)));
         const unmet = new Set(), gw = groups.map(() => []);
@@ -870,34 +890,47 @@
           if (w.length && !w.some(x => where.get(x) === where.get(id))) unmet.add(id);
         }));
         groups.forEach((a,i) => { if (a.length > MAX_GROUP) gw[i].push(`${a.length}명이에요 (최대 ${MAX_GROUP}명)`); });
-        apt.forEach(([a,b]) => { if (map.get(a).gender === g && where.has(a) && where.get(a) === where.get(b)) gw[where.get(a)].push(`${map.get(a).name}·${map.get(b).name} 떨어져야 해요`); });
-        tog.forEach(([a,b]) => { if (map.get(a).gender === g && where.get(a) !== where.get(b)) { const i = where.has(a) ? where.get(a) : where.get(b); if (i !== undefined) gw[i].push(`${map.get(a).name}·${map.get(b).name} 같은 모둠이어야 해요`); } });
+        apt.forEach(([a,b]) => { if (inBk(map.get(a), g) && where.has(a) && where.get(a) === where.get(b)) gw[where.get(a)].push(`${map.get(a).name}·${map.get(b).name} 떨어져야 해요`); });
+        tog.forEach(([a,b]) => { if (inBk(map.get(a), g) && where.get(a) !== where.get(b)) { const i = where.has(a) ? where.get(a) : where.get(b); if (i !== undefined) gw[i].push(`${map.get(a).name}·${map.get(b).name} 같은 모둠이어야 해요`); } });
         res[g] = {unmet, gw};
       });
       return res;
     }
 
-    const saveGroups = debounce(async () => {
+    // 설정 저장: 항목별로 따로 모아서 잠깐 뒤 저장. 잠그기 전에는 남은 저장을 바로 처리.
+    const pendingSaves = new Map();
+    async function writeSetting(key, value, pw){
       setSaveState("저장 중…");
-      const r = await call(api.setSetting(T.pw, "groups", T.groups)); if (!r) return;
-      setSaveState(r.ok ? "모둠 저장됨 ✓" : "저장 실패 · 인터넷을 확인해 주세요");
-    }, 500);
-    const saveSetting = debounce(async (key, value) => {
-      setSaveState("저장 중…");
-      const r = await call(api.setSetting(T.pw, key, value)); if (!r) return;
-      setSaveState(r.ok ? "저장됨 ✓" : "저장 실패 · 인터넷을 확인해 주세요");
-    }, 600);
+      let r; try { r = await api.setSetting(pw, key, value); } catch(e) { r = {ok:false, error:"network"}; }
+      setSaveState(r.ok ? (key === "groups" ? "모둠 저장됨 ✓" : "저장됨 ✓") : "저장 실패 · 인터넷을 확인해 주세요");
+      return r;
+    }
+    function saveSetting(key, value){
+      const old = pendingSaves.get(key); if (old) clearTimeout(old.timer);
+      const job = {key, value, pw:T.pw};
+      job.timer = setTimeout(() => { pendingSaves.delete(key); writeSetting(job.key, job.value, job.pw); }, 600);
+      pendingSaves.set(key, job);
+    }
+    const saveGroups = () => saveSetting("groups", T.groups);
+    async function flushSaves(){
+      const jobs = [...pendingSaves.values()]; pendingSaves.clear();
+      for (const j of jobs) { clearTimeout(j.timer); await writeSetting(j.key, j.value, j.pw); }
+    }
 
     function renderGroupsTab(){
       const all = students(), sizesSet = setting("sizes", {}), cons = setting("constraints", {together:"", apart:""});
-      const count = g => all.filter(s => s.gender === g).length;
+      const count = g => all.filter(s => inBk(s, g)).length, mixed = isMixed();
       const sizeVal = g => sizesSet[g] != null && sizesSet[g] !== "" ? sizesSet[g] : suggestSizes(count(g));
       const missing = all.filter(s => !s.type).length;
       $("tbody").innerHTML = `<div class="desk">
         <div class="stack">
           <section class="panel">
             <h2>모둠 인원</h2>
-            ${GENDERS.map(g => `<div class="field"><label for="size-${g}">${g}학생 ${count(g)}명 → 모둠별 인원</label>
+            ${CFG.sharePage ? `<div class="seg2" role="group" aria-label="남녀 편성 방식">
+              <button type="button" data-mode="split" aria-pressed="${!mixed}">남녀 따로</button>
+              <button type="button" data-mode="mixed" aria-pressed="${mixed}">남녀 섞기</button></div>
+              ${mixed ? `<p class="hint">모둠마다 남녀 수가 최대한 고르게 나뉘어요. (여 ${count("여")}명 · 남 ${count("남")}명)</p>` : ""}` : ""}
+            ${BKS().map(g => `<div class="field"><label for="size-${g}">${bkTitle(g)} ${count(g)}명 → 모둠별 인원</label>
               <div class="row"><input id="size-${g}" class="input" style="flex:1" data-size="${g}" value="${esc(sizeVal(g))}" inputmode="numeric" autocomplete="off"><button class="btn ghost sm" type="button" data-auto="${g}">추천</button></div>
               <p class="hint" id="sizeMsg-${g}"></p></div>`).join("")}
             <p class="hint">쉼표로 나눠 적어요. 한 모둠은 최대 ${MAX_GROUP}명. 추천은 4명 모둠을 최대한 많이 만들어요.</p>
@@ -917,7 +950,7 @@
         <div class="stack"><section class="panel" id="outPanel"></section></div>
       </div>`;
 
-      const checkSizes = () => GENDERS.map(g => { const r = parseSizes($("size-"+g).value, count(g)); const el = $("sizeMsg-"+g); el.textContent = r.msg; el.style.color = r.ok ? "var(--c)" : "var(--a)"; return r; });
+      const checkSizes = () => BKS().map(g => { const r = parseSizes($("size-"+g).value, count(g)); const el = $("sizeMsg-"+g); el.textContent = r.msg; el.style.color = r.ok ? "var(--c)" : "var(--a)"; return r; });
       const checkCons = () => {
         [["togBox","togMsg"],["aptBox","aptMsg"]].forEach(([box,msg]) => {
           const {sets, errors} = parseCons($(box).value), el = $(msg);
@@ -927,11 +960,18 @@
         const {cross} = consPairs();
         if (cross.length) { $("togMsg").textContent += ` ⚠ 남녀는 같은 모둠이 될 수 없어요: ${cross.join(", ")}`; $("togMsg").style.color = "var(--a)"; }
       };
-      const storeSizes = () => { const v = {}; GENDERS.forEach(g => v[g] = $("size-"+g).value.trim()); T.data.settings.sizes = v; saveSetting("sizes", v); };
+      const storeSizes = () => { const v = Object.assign({}, setting("sizes", {})); BKS().forEach(g => v[g] = $("size-"+g).value.trim()); T.data.settings.sizes = v; saveSetting("sizes", v); };
       const storeCons = () => { const v = {together:$("togBox").value, apart:$("aptBox").value}; T.data.settings.constraints = v; saveSetting("constraints", v); };
       checkSizes(); checkCons();
       $("tbody").querySelectorAll("[data-size]").forEach(el => el.oninput = () => { checkSizes(); storeSizes(); });
       $("tbody").querySelectorAll("[data-auto]").forEach(b => b.onclick = () => { $("size-"+b.dataset.auto).value = suggestSizes(count(b.dataset.auto)); checkSizes(); storeSizes(); });
+      $("tbody").querySelectorAll("[data-mode]").forEach(b => b.onclick = () => {
+        const next = b.dataset.mode; if (next === setting("mode", "split")) return;
+        if (T.groups && !confirm("남녀 편성 방식을 바꾸면 지금 모둠을 새로 짜야 해요. 바꿀까요?")) return;
+        T.data.settings.mode = next; saveSetting("mode", next); T.data = prep(T.data);
+        if (T.groups) { T.groups = null; T.sel = null; saveGroups(); }
+        renderGroupsTab();
+      });
       $("togBox").oninput = () => { storeCons(); checkCons(); renderOut(); };
       $("aptBox").oninput = () => { storeCons(); checkCons(); renderOut(); };
       $("makeBtn").onclick = () => {
@@ -940,7 +980,7 @@
         if (sz.some(r => !r.ok)) return $("makeHint").textContent = "모둠 인원 합계를 먼저 맞춰 주세요.";
         if (T.groups && !confirm("지금 모둠을 지우고 새로 짤까요? 직접 옮긴 내용도 사라져요.")) return;
         const {tog, apt} = consPairs(), next = {at:Date.now()};
-        GENDERS.forEach((g, gi) => { next[g] = solve(all.filter(s => s.gender === g).map(s => s.id), sz[gi].sizes, tog, apt); });
+        BKS().forEach((g, gi) => { next[g] = solve(all.filter(s => inBk(s, g)).map(s => s.id), sz[gi].sizes, tog, apt, g === MIX); });
         T.groups = next; T.sel = null; saveGroups();
         $("makeBtn").textContent = "모둠 새로 짜기"; $("makeHint").textContent = "";
         renderOut();
@@ -952,9 +992,9 @@
       const out = $("outPanel"); if (!out) return;
       if (!T.groups) { out.innerHTML = `<h2>모둠 결과</h2><div class="empty">왼쪽에서 인원과 조건을 확인하고 '모둠 짜기'를 눌러 주세요.</div>`; return; }
       const map = sById(), view = groupView(), ev = evaluate(view), {cross} = consPairs();
-      const unmetAll = GENDERS.flatMap(g => [...ev[g].unmet]).map(id => map.get(id).name);
-      const warnAll = GENDERS.flatMap(g => ev[g].gw.flat());
-      const poolAll = GENDERS.flatMap(g => view[g].pool);
+      const unmetAll = BKS().flatMap(g => [...ev[g].unmet]).map(id => map.get(id).name);
+      const warnAll = BKS().flatMap(g => ev[g].gw.flat());
+      const poolAll = BKS().flatMap(g => view[g].pool);
       const sel = T.sel && map.get(T.sel);
       const issues = [];
       if (unmetAll.length) issues.push(`희망 친구와 다른 모둠이 된 학생 ${unmetAll.length}명: ${esc(unmetAll.join(", "))} — 희망이 서로 엇갈리거나 '꼭 다른 모둠' 조건과 겹쳐서 모두 맞출 수 없을 때 생겨요. 직접 옮겨서 조정할 수 있어요.`);
@@ -967,20 +1007,20 @@
         ${issues.length ? `<div class="note"><b>확인할 것</b><ul>${issues.map(x => `<li>${x}</li>`).join("")}</ul></div>`
           : `<div class="note ok">희망 친구를 고른 학생은 모두 그중 1명 이상과 같은 모둠이에요. 친구 조건도 모두 지켜졌어요.</div>`}
         <p class="hint">${sel ? `<b>${esc(sel.name)}</b> 선택됨 → 바꿀 학생을 누르거나 모둠의 '여기로'를 누르세요. (다시 누르면 취소)` : "학생 이름을 누르고 다른 학생을 누르면 서로 자리를 바꿔요. '여기로'를 누르면 그 모둠으로 옮겨요. 바꿀 때마다 자동 저장돼요."}</p>
-        ${GENDERS.filter(g => view[g].groups.length || view[g].pool.length).map(g => `<section class="gsec">
-          <div class="row spaced"><h3>${g}학생</h3><button class="btn ghost sm" type="button" data-addg="${g}">+ 모둠 추가</button></div>
+        ${BKS().filter(g => view[g].groups.length || view[g].pool.length).map(g => `<section class="gsec">
+          <div class="row spaced"><h3>${bkTitle(g)}</h3><button class="btn ghost sm" type="button" data-addg="${g}">+ 모둠 추가</button></div>
           <div class="groups">
             ${view[g].groups.map((arr, i) => {
-              const canHere = sel && sel.gender === g && !arr.includes(sel.id);
+              const canHere = sel && bkOf(sel) === g && !arr.includes(sel.id);
               return `<div class="group ${ev[g].gw[i].length ? "warn" : ""}">
-                <div class="ghead"><h4>${g} ${i+1}모둠 · ${arr.length}명</h4>
+                <div class="ghead"><h4>${gLabel(g, i)} · ${arr.length}명${g === MIX && arr.length ? ` <small class="mix">${mixCount(arr)}</small>` : ""}</h4>
                   ${canHere ? `<button class="here" type="button" data-here="${g}|${i}">여기로</button>` : !arr.length ? `<button class="xs" type="button" data-delg="${g}|${i}">모둠 삭제</button>` : ""}</div>
                 ${arr.map(id => chip(map.get(id), ev[g].unmet.has(id))).join("")}
                 ${ev[g].gw[i].map(w => `<p class="gwarn">⚠ ${esc(w)}</p>`).join("")}
               </div>`;
             }).join("")}
-            ${view[g].pool.length || (sel && sel.gender === g && !view[g].pool.includes(sel.id)) ? `<div class="group pool">
-              <div class="ghead"><h4>모둠 없음 · ${view[g].pool.length}명</h4>${sel && sel.gender === g && !view[g].pool.includes(sel.id) ? `<button class="here" type="button" data-here="${g}|pool">빼기</button>` : ""}</div>
+            ${view[g].pool.length || (sel && bkOf(sel) === g && !view[g].pool.includes(sel.id)) ? `<div class="group pool">
+              <div class="ghead"><h4>모둠 없음 · ${view[g].pool.length}명</h4>${sel && bkOf(sel) === g && !view[g].pool.includes(sel.id) ? `<button class="here" type="button" data-here="${g}|pool">빼기</button>` : ""}</div>
               ${view[g].pool.map(id => chip(map.get(id), false)).join("")}
             </div>` : ""}
           </div>
@@ -997,13 +1037,13 @@
     function chip(s, unmet){
       const cls = s.type ? "t" + s.type : "t0";
       return `<button class="chip ${T.sel === s.id ? "sel" : ""} ${unmet ? "unmet" : ""}" type="button" data-id="${esc(s.id)}" aria-pressed="${T.sel === s.id}">
-        <span>${esc(s.name)}</span><small class="${cls}">${s.type ? TYPES[s.type].name : "미제출"}</small>${unmet ? "<em>희망 친구와 떨어짐</em>" : ""}</button>`;
+        <span>${esc(s.name)}${isMixed() ? ` <i class="gmark">${s.gender}</i>` : ""}</span><small class="${cls}">${s.type ? TYPES[s.type].name : "미제출"}</small>${unmet ? "<em>희망 친구와 떨어짐</em>" : ""}</button>`;
     }
     function locate(id){
       const s = sById().get(id); if (!s) return null;
-      const groups = T.groups[s.gender] || [];
-      for (let i = 0; i < groups.length; i++) { const j = groups[i].indexOf(id); if (j >= 0) return {g:s.gender, i, j}; }
-      return {g:s.gender, i:null, j:null};
+      const bk = bkOf(s), groups = T.groups[bk] || [];
+      for (let i = 0; i < groups.length; i++) { const j = groups[i].indexOf(id); if (j >= 0) return {g:bk, i, j}; }
+      return {g:bk, i:null, j:null};
     }
     function onChip(id){
       if (!T.sel || T.sel === id) { T.sel = T.sel === id ? null : id; return renderOut(); }
@@ -1025,9 +1065,9 @@
     function copyText(){
       const map = sById(), view = groupView();
       const lines = [];
-      GENDERS.forEach(g => {
-        view[g].groups.forEach((a, i) => lines.push(`${g} ${i+1}모둠: ${a.map(id => { const s = map.get(id); return s.name + (s.type ? `(${TYPES[s.type].name})` : ""); }).join(", ")}`));
-        if (view[g].pool.length) lines.push(`${g} 모둠 없음: ${view[g].pool.map(id => map.get(id).name).join(", ")}`);
+      BKS().forEach(g => {
+        view[g].groups.forEach((a, i) => lines.push(`${gLabel(g, i)}: ${a.map(id => { const s = map.get(id); return s.name + (s.type ? `(${TYPES[s.type].name})` : ""); }).join(", ")}`));
+        if (view[g].pool.length) lines.push(`${g === MIX ? "" : g + " "}모둠 없음: ${view[g].pool.map(id => map.get(id).name).join(", ")}`);
       });
       const text = lines.join("\n");
       const done = () => { $("copyBtn").textContent = "복사했어요 ✓"; setTimeout(() => $("copyBtn") && ($("copyBtn").textContent = "텍스트 복사"), 1500); };
@@ -1036,7 +1076,7 @@
     function openBig(print){
       const map = sById(), view = groupView(), big = $("big");
       big.innerHTML = `<div class="bigbar"><h1>현장체험학습 모둠</h1><div class="row"><button class="btn ghost" type="button" id="bigPrint">인쇄</button><button class="btn" type="button" id="bigClose">닫기</button></div></div>
-        ${GENDERS.filter(g => view[g].groups.length).map(g => `<h2>${g}학생</h2><div class="biggroups">${view[g].groups.map((a, i) => `<div class="bigcard"><h3>${i+1}모둠</h3><ul>${a.map(id => { const s = map.get(id); return `<li><span>${esc(s.name)}</span><small>${s.type ? TYPES[s.type].name : ""}</small></li>`; }).join("")}</ul></div>`).join("")}</div>`).join("")}`;
+        ${BKS().filter(g => view[g].groups.length).map(g => `${g === MIX ? "" : `<h2>${bkTitle(g)}</h2>`}<div class="biggroups">${view[g].groups.map((a, i) => `<div class="bigcard"><h3>${i+1}모둠</h3><ul>${a.map(id => { const s = map.get(id); return `<li><span>${esc(s.name)}</span><small>${s.type ? TYPES[s.type].name : ""}</small></li>`; }).join("")}</ul></div>`).join("")}</div>`).join("")}`;
       big.hidden = false;
       $("bigClose").onclick = () => { big.hidden = true; };
       $("bigPrint").onclick = () => window.print();
